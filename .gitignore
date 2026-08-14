@@ -1,0 +1,48 @@
+# Python environments and caches
+**/.venv/
+**/__pycache__/
+**/*.py[cod]
+**/.cache/
+**/.pytest_cache/
+**/.ipynb_checkpoints/
+
+# Large models and ML artifacts
+**/*.bin
+**/*.safetensors
+**/*.pt
+**/*.pth
+**/*.ckpt
+
+# Raw media and archives
+**/*.mp4
+**/*.mp3
+**/*.wav
+**/*.m4a
+**/*.zip
+**/*.7z
+**/*.rar
+
+# Data tables and spreadsheet review files
+**/*.csv
+**/*.tsv
+**/*.parquet
+**/*.feather
+**/*.xlsx
+**/*.xls
+**/*.jsonl
+**/cases.json
+**/run_manifest.json
+**/*manifest*.json
+**/*validation_report*.json
+**/Drive 표본/
+
+# Generated datasets and model outputs
+**/구축 데이터셋*/
+**/데이터셋 품질테스트*/
+**/머신러닝_분석결과*/
+**/분석 결과/
+
+# Local logs and temporary files
+**/*.log
+**/*.tmp
+**/*.bak
