@@ -1,0 +1,72 @@
+{
+  "stage": "07_01_calibration_risk_score_threshold",
+  "risk_score_formula": "calibrated_probability * 100",
+  "window": {
+    "base_model": "RandomForest",
+    "calibration_method": "PLATT",
+    "alert_probability_threshold": 0.09999999999999999,
+    "alert_risk_score_threshold": 10.0,
+    "threshold_selection_mode": "FALLBACK_MAX_F2",
+    "target_recall": 0.9,
+    "max_fpr_policy": 0.2,
+    "test_calibration_metrics": {
+      "brier": 0.17590789317616576,
+      "log_loss": 0.5125309912908171,
+      "ece_10": 0.02827806296838375,
+      "roc_auc": 0.7721818704042317,
+      "pr_auc": 0.7816437505320428
+    },
+    "test_threshold_metrics": {
+      "threshold": 0.09999999999999999,
+      "risk_score_threshold": 10.0,
+      "precision": 0.6325939342291268,
+      "recall": 0.9988193624557261,
+      "fpr": 0.7836535783904209,
+      "specificity": 0.21634642160957906,
+      "f1": 0.7746008584876118,
+      "f2": 0.8951716358674643,
+      "alert_rate": 0.9072936184876483,
+      "tn": 12.331746031746027,
+      "fp": 44.66825396825407,
+      "fn": 0.09090909090909091,
+      "tp": 76.90909090909128
+    }
+  },
+  "case": {
+    "base_model": "RandomForest",
+    "feature_set": "STACKED_SAFE",
+    "calibration_method": "IDENTITY",
+    "alert_probability_threshold": 0.39,
+    "alert_risk_score_threshold": 39.0,
+    "threshold_selection_mode": "FALLBACK_MAX_F2",
+    "target_recall": 0.9,
+    "max_fpr_policy": 0.2,
+    "test_calibration_metrics": {
+      "brier": 0.09879076733166471,
+      "log_loss": 0.3112839634136336,
+      "ece_10": 0.07853433388473698,
+      "roc_auc": 0.9248125937031485,
+      "pr_auc": 0.9582161600473856
+    },
+    "test_threshold_metrics": {
+      "threshold": 0.39,
+      "risk_score_threshold": 39.0,
+      "precision": 0.8308823529411765,
+      "recall": 0.9826086956521739,
+      "fpr": 0.39655172413793105,
+      "specificity": 0.603448275862069,
+      "f1": 0.900398406374502,
+      "f2": 0.9479865771812079,
+      "alert_rate": 0.7861271676300579,
+      "tn": 35.0,
+      "fp": 23.0,
+      "fn": 2.0,
+      "tp": 113.0
+    }
+  },
+  "risk_bands_defined": false,
+  "manual_feature_score_used": false,
+  "source_confounding_fully_resolved": false,
+  "probability_interpretation": "internal-distribution calibrated risk; external re-calibration required",
+  "next_stage": "08 service integration / real-time risk update"
+}
