@@ -1,8 +1,10 @@
+import math
 from pathlib import Path
 
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+from plotly.subplots import make_subplots
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -10,6 +12,8 @@ POLICE_DATA_RELATIVE_PATH = Path(
     "c_이종열/데이터/경찰청_보이스피싱 현황_20251231.csv"
 )
 POLICE_DATA_PATH = PROJECT_ROOT / POLICE_DATA_RELATIVE_PATH
+POSTAL_DATA_RELATIVE_PATH = Path("c_이종열/데이터/df_postal.csv")
+POSTAL_DATA_PATH = PROJECT_ROOT / POSTAL_DATA_RELATIVE_PATH
 
 SOURCE_YEAR_COLUMN = "구분"
 COUNT_COLUMNS = ("기관사칭형_발생건수", "대출사기형_발생건수")
@@ -27,6 +31,15 @@ TYPE_CUMULATIVE_PERIOD = "2016~2025년 누적"
 TYPE_LATEST_PERIOD = "2025년"
 TYPE_PERIOD_LABELS = (TYPE_CUMULATIVE_PERIOD, TYPE_LATEST_PERIOD)
 TYPE_PERIOD_Y_POSITIONS = {TYPE_CUMULATIVE_PERIOD: 1, TYPE_LATEST_PERIOD: 0}
+POSTAL_REQUIRED_COLUMNS = (
+    "피해액",
+    "사기유형",
+    "사칭기관",
+    "전화_보이스피싱",
+    "중복후보",
+)
+WON_PER_MANWON = 10_000
+WON_PER_EOK = 100_000_000
 
 
 def load_police_trend_data() -> pd.DataFrame:
@@ -82,41 +95,94 @@ def _format_amount(amount_eok: float) -> str:
     return f"{trillion:,}조 {eok:,}억 원"
 
 
-def _create_trend_figure(
-    trend_data: pd.DataFrame,
-    value_column: str,
-    title: str,
-    y_axis_title: str,
-    hover_label: str,
-    hover_unit: str,
-) -> go.Figure:
-    figure = go.Figure(
+def _format_won_as_manwon(amount_won: float) -> str:
+    """원 단위 피해액을 대시보드용 억·만원 문자열로 변환합니다."""
+    rounded_manwon = int(round(amount_won / WON_PER_MANWON))
+    if rounded_manwon < 10_000:
+        return f"{rounded_manwon:,}만원"
+
+    eok, manwon = divmod(rounded_manwon, 10_000)
+    if manwon == 0:
+        return f"{eok:,}억 원"
+    return f"{eok:,}억 {manwon:,}만원"
+
+
+def _create_damage_trend_figure(trend_data: pd.DataFrame) -> go.Figure:
+    """발생건수와 피해금액 추세를 공통 연도축의 상하 그래프로 구성합니다."""
+    amount_tick_step = 5_000
+    max_amount = trend_data["전체_피해액_억원"].max()
+    # 최대값이 경계와 같아도 막대 위에 한 눈금의 여유가 생기도록 올립니다.
+    amount_axis_max = (
+        math.floor(max_amount / amount_tick_step) + 1
+    ) * amount_tick_step
+    amount_tick_values = list(
+        range(0, amount_axis_max + amount_tick_step, amount_tick_step)
+    )
+
+    figure = make_subplots(
+        rows=2,
+        cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.14,
+        subplot_titles=("발생건수", "피해금액"),
+    )
+    figure.add_trace(
         go.Scatter(
             x=trend_data["연도"],
-            y=trend_data[value_column],
+            y=trend_data["전체_발생건수"],
             mode="lines+markers",
             line={"color": "#1f5fae", "width": 3},
             marker={"color": "#1f5fae", "size": 7},
             hovertemplate=(
                 "<b>%{x}년</b><br>"
-                f"{hover_label}: %{{y:,.0f}}{hover_unit}<extra></extra>"
+                "발생건수: %{y:,.0f}건<extra></extra>"
             ),
-        )
+        ),
+        row=1,
+        col=1,
+    )
+    figure.add_trace(
+        go.Bar(
+            x=trend_data["연도"],
+            y=trend_data["전체_피해액_억원"],
+            marker={"color": "#1f5fae"},
+            opacity=0.78,
+            hovertemplate=(
+                "<b>%{x}년</b><br>"
+                "피해금액: %{y:,.0f}억 원<extra></extra>"
+            ),
+        ),
+        row=2,
+        col=1,
     )
     figure.update_layout(
         title={
-            "text": title,
+            "text": "연도별 보이스피싱 피해 추세",
             "x": 0.01,
             "xanchor": "left",
             "font": {"color": "#172033", "size": 16},
         },
-        height=260,
-        margin={"l": 22, "r": 10, "t": 38, "b": 30},
+        height=415,
+        margin={"l": 22, "r": 10, "t": 58, "b": 32},
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         font={"color": "#172033", "family": "Arial, sans-serif", "size": 12},
         hoverlabel={"bgcolor": "#ffffff", "font_color": "#172033"},
         showlegend=False,
+        bargap=0.3,
+    )
+    figure.update_annotations(font={"color": "#172033", "size": 12})
+    figure.update_xaxes(
+        tickmode="array",
+        tickvals=trend_data["연도"],
+        ticktext=[str(year) for year in trend_data["연도"]],
+        tickfont={"color": "#172033", "size": 11},
+        automargin=True,
+        showgrid=False,
+        linecolor="#dce4ee",
+        showticklabels=False,
+        row=1,
+        col=1,
     )
     figure.update_xaxes(
         title="연도",
@@ -128,17 +194,29 @@ def _create_trend_figure(
         automargin=True,
         showgrid=False,
         linecolor="#dce4ee",
+        row=2,
+        col=1,
     )
+    for row, y_axis_title in ((1, "발생건수(건)"), (2, "피해금액(억원)")):
+        figure.update_yaxes(
+            title=y_axis_title,
+            tickformat=",",
+            rangemode="tozero",
+            title_font={"color": "#172033", "size": 12},
+            tickfont={"color": "#172033", "size": 11},
+            automargin=True,
+            showgrid=True,
+            gridcolor="rgba(101,113,135,0.24)",
+            zeroline=False,
+            row=row,
+            col=1,
+        )
     figure.update_yaxes(
-        title=y_axis_title,
-        tickformat=",",
-        rangemode="tozero",
-        title_font={"color": "#172033", "size": 12},
-        tickfont={"color": "#172033", "size": 11},
-        automargin=True,
-        showgrid=True,
-        gridcolor="rgba(101,113,135,0.24)",
-        zeroline=False,
+        range=[0, amount_axis_max],
+        tickmode="array",
+        tickvals=amount_tick_values,
+        row=2,
+        col=1,
     )
     return figure
 
@@ -239,53 +317,66 @@ def load_police_type_data() -> pd.DataFrame:
     return pd.DataFrame.from_records(records)
 
 
-def _create_type_share_figure(
-    type_data: pd.DataFrame,
-    value_column: str,
-    share_column: str,
-    title: str,
-    value_unit: str,
-) -> go.Figure:
-    figure = go.Figure()
-    for fraud_type, _, _ in FRAUD_TYPE_COLUMNS:
-        type_rows = (
-            type_data[type_data["사기유형"] == fraud_type]
-            .set_index("기간")
-            .loc[list(TYPE_PERIOD_LABELS)]
-            .reset_index()
-        )
-        share_labels = [
-            f"{fraud_type}<br>{share:.1f}%" for share in type_rows[share_column]
-        ]
-        figure.add_bar(
-            name=fraud_type,
-            y=[TYPE_PERIOD_Y_POSITIONS[period] for period in type_rows["기간"]],
-            x=type_rows[share_column],
-            orientation="h",
-            marker={"color": FRAUD_TYPE_COLORS[fraud_type]},
-            text=share_labels,
-            textposition="inside",
-            insidetextanchor="middle",
-            textfont={"color": "#ffffff", "size": 10},
-            hovertext=type_rows["기간"],
-            customdata=type_rows[[value_column, share_column]].to_numpy(),
-            hovertemplate=(
-                "<b>%{hovertext}</b><br>"
-                f"{fraud_type}<br>"
-                f"%{{customdata[0]:,.0f}}{value_unit}<br>"
-                "%{customdata[1]:.2f}%<extra></extra>"
-            ),
-        )
+def _create_type_structure_figure(type_data: pd.DataFrame) -> go.Figure:
+    """발생건수와 피해금액의 사기유형 비중을 한 Figure로 구성합니다."""
+    metric_specs = (
+        ("발생건수 비중", "발생건수", "발생건수_비중", "건"),
+        ("피해금액 비중", "피해금액_억원", "피해금액_비중", "억 원"),
+    )
+    figure = make_subplots(
+        rows=2,
+        cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.16,
+        subplot_titles=tuple(spec[0] for spec in metric_specs),
+    )
+
+    for row, (_, value_column, share_column, value_unit) in enumerate(
+        metric_specs, start=1
+    ):
+        for fraud_type, _, _ in FRAUD_TYPE_COLUMNS:
+            type_rows = (
+                type_data[type_data["사기유형"] == fraud_type]
+                .set_index("기간")
+                .loc[list(TYPE_PERIOD_LABELS)]
+                .reset_index()
+            )
+            share_labels = [
+                f"{fraud_type}<br>{share:.1f}%"
+                for share in type_rows[share_column]
+            ]
+            figure.add_trace(
+                go.Bar(
+                    name=fraud_type,
+                    y=[
+                        TYPE_PERIOD_Y_POSITIONS[period]
+                        for period in type_rows["기간"]
+                    ],
+                    x=type_rows[share_column],
+                    orientation="h",
+                    marker={"color": FRAUD_TYPE_COLORS[fraud_type]},
+                    text=share_labels,
+                    textposition="inside",
+                    insidetextanchor="middle",
+                    textfont={"color": "#ffffff", "size": 10},
+                    hovertext=type_rows["기간"],
+                    customdata=type_rows[
+                        [value_column, share_column]
+                    ].to_numpy(),
+                    hovertemplate=(
+                        "<b>%{hovertext}</b><br>"
+                        f"{fraud_type}<br>"
+                        f"%{{customdata[0]:,.0f}}{value_unit}<br>"
+                        "%{customdata[1]:.2f}%<extra></extra>"
+                    ),
+                ),
+                row=row,
+                col=1,
+            )
 
     figure.update_layout(
-        title={
-            "text": title,
-            "x": 0.01,
-            "xanchor": "left",
-            "font": {"color": "#172033", "size": 15},
-        },
-        height=235,
-        margin={"l": 20, "r": 10, "t": 42, "b": 34},
+        height=390,
+        margin={"l": 20, "r": 10, "t": 34, "b": 34},
         barmode="stack",
         bargap=0.35,
         paper_bgcolor="rgba(0,0,0,0)",
@@ -295,18 +386,25 @@ def _create_type_share_figure(
         showlegend=False,
         uniformtext={"minsize": 9, "mode": "show"},
     )
+    figure.update_annotations(font={"color": "#172033", "size": 12})
     figure.update_xaxes(
-        title="비중",
         range=[0, 100],
         tickmode="array",
         tickvals=[0, 25, 50, 75, 100],
         ticksuffix="%",
-        title_font={"color": "#172033", "size": 12},
         tickfont={"color": "#172033", "size": 11},
         automargin=True,
         showgrid=True,
         gridcolor="rgba(101,113,135,0.20)",
         zeroline=False,
+    )
+    figure.update_xaxes(showticklabels=False, row=1, col=1)
+    figure.update_xaxes(
+        title="비중",
+        showticklabels=True,
+        title_font={"color": "#172033", "size": 12},
+        row=2,
+        col=1,
     )
     figure.update_yaxes(
         tickmode="array",
@@ -338,8 +436,250 @@ def _build_type_insight(type_data: pd.DataFrame) -> str:
     )
 
 
+def load_postal_damage_data() -> pd.DataFrame:
+    """Notebook과 동일한 조건으로 우체국 피해금액 분석표본을 만듭니다."""
+    raw_data = pd.read_csv(POSTAL_DATA_PATH, encoding="utf-8-sig")
+    raw_data.columns = raw_data.columns.str.strip()
+
+    for column in raw_data.select_dtypes(include=["object", "string"]).columns:
+        raw_data[column] = raw_data[column].str.strip()
+
+    missing_columns = [
+        column for column in POSTAL_REQUIRED_COLUMNS if column not in raw_data.columns
+    ]
+    if missing_columns:
+        raise ValueError(f"필수 컬럼이 없습니다: {', '.join(missing_columns)}")
+
+    raw_data["피해액"] = pd.to_numeric(
+        raw_data["피해액"].astype("string").str.replace(",", "", regex=False),
+        errors="coerce",
+    )
+    if raw_data["피해액"].isna().any():
+        raise ValueError("피해액을 숫자로 변환할 수 없는 행이 있습니다.")
+
+    # Notebook의 분석대상과 같이 전화 보이스피싱에서 투자사기·중복후보를 제외합니다.
+    phone_mask = (
+        raw_data["전화_보이스피싱"]
+        .astype("string")
+        .str.lower()
+        .eq("true")
+    )
+    investment_mask = raw_data["사기유형"].eq("투자사기")
+    duplicate_candidate_mask = (
+        raw_data["중복후보"].astype("string").str.lower().eq("true")
+    )
+    damage_data = raw_data.loc[
+        phone_mask & ~investment_mask & ~duplicate_candidate_mask,
+        ["피해액", "사기유형", "사칭기관"],
+    ].copy()
+
+    if damage_data.empty:
+        raise ValueError("우체국 피해금액 분석대상이 없습니다.")
+    if damage_data["피해액"].le(0).any():
+        raise ValueError("피해액이 0원 이하인 행이 있습니다.")
+
+    damage_data["피해액_억원"] = damage_data["피해액"] / WON_PER_EOK
+    return damage_data.reset_index(drop=True)
+
+
+def _create_postal_damage_distribution_figure(
+    damage_data: pd.DataFrame,
+) -> go.Figure:
+    """우체국 분석표본의 피해금액 분포를 가로형 boxplot으로 표시합니다."""
+    max_amount_eok = damage_data["피해액_억원"].max()
+    axis_max_eok = math.floor(max_amount_eok) + 1
+    tick_values = list(range(0, axis_max_eok + 1))
+    tick_labels = ["0", *[f"{value}억" for value in tick_values[1:]]]
+
+    figure = go.Figure(
+        go.Box(
+            x=damage_data["피해액_억원"],
+            customdata=damage_data["피해액"],
+            orientation="h",
+            quartilemethod="linear",
+            boxpoints="outliers",
+            jitter=0,
+            line={"color": "#1f5fae", "width": 2},
+            fillcolor="rgba(31,95,174,0.20)",
+            marker={"color": "#1f5fae", "size": 6},
+            hovertemplate=(
+                "피해금액: %{customdata:,.0f}원<extra></extra>"
+            ),
+        )
+    )
+    figure.update_layout(
+        height=250,
+        margin={"l": 8, "r": 8, "t": 18, "b": 42},
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font={"color": "#172033", "family": "Arial, sans-serif", "size": 12},
+        hoverlabel={"bgcolor": "#ffffff", "font_color": "#172033"},
+        showlegend=False,
+    )
+    figure.update_xaxes(
+        title="피해금액",
+        range=[0, axis_max_eok],
+        tickmode="array",
+        tickvals=tick_values,
+        ticktext=tick_labels,
+        title_font={"color": "#172033", "size": 12},
+        tickfont={"color": "#172033", "size": 10},
+        automargin=True,
+        showgrid=True,
+        gridcolor="rgba(101,113,135,0.20)",
+        zeroline=False,
+    )
+    figure.update_yaxes(showticklabels=False, showgrid=False, zeroline=False)
+    return figure
+
+
+def _build_postal_damage_insight(damage_data: pd.DataFrame) -> str:
+    median_amount = damage_data["피해액"].median()
+    mean_amount = damage_data["피해액"].mean()
+    return (
+        f"중앙값은 {_format_won_as_manwon(median_amount)}이지만 평균은 약 "
+        f"{_format_won_as_manwon(mean_amount)}으로 더 높아, 일부 고액 피해사례가 "
+        "전체 평균을 크게 끌어올리는 오른쪽으로 치우친 분포가 나타났습니다."
+    )
+
+
+def _create_postal_category_damage_figure(
+    damage_data: pd.DataFrame,
+    category_column: str,
+) -> go.Figure:
+    """Notebook 순서대로 범주별 피해금액 분포와 표본 수를 표시합니다."""
+    category_order = (
+        damage_data.dropna(subset=[category_column, "피해액"])
+        .groupby(category_column, observed=False)["피해액"]
+        .median()
+        .sort_values(ascending=False)
+        .index.tolist()
+    )
+    category_counts = damage_data[category_column].value_counts()
+    category_labels = {
+        category: f"{category} (n={int(category_counts[category])})"
+        for category in category_order
+    }
+
+    max_amount_eok = damage_data["피해액_억원"].max()
+    axis_max_eok = math.floor(max_amount_eok) + 1
+    tick_values = list(range(0, axis_max_eok + 1))
+    tick_labels = ["0", *[f"{value}억" for value in tick_values[1:]]]
+    figure_height = max(360, 46 * len(category_order) + 100)
+
+    figure = go.Figure()
+    for category in category_order:
+        category_data = damage_data[damage_data[category_column].eq(category)]
+        figure.add_trace(
+            go.Box(
+                name=category_labels[category],
+                x=category_data["피해액_억원"],
+                y=[category_labels[category]] * len(category_data),
+                customdata=category_data[[category_column, "피해액"]].to_numpy(),
+                orientation="h",
+                quartilemethod="linear",
+                boxpoints="outliers",
+                jitter=0,
+                line={"color": "#1f5fae", "width": 2},
+                fillcolor="rgba(31,95,174,0.18)",
+                marker={"color": "#1f5fae", "size": 5},
+                hovertemplate=(
+                    "<b>%{customdata[0]}</b><br>"
+                    "피해금액: %{customdata[1]:,.0f}원<extra></extra>"
+                ),
+            )
+        )
+
+    figure.update_layout(
+        height=figure_height,
+        margin={"l": 8, "r": 8, "t": 18, "b": 42},
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font={"color": "#172033", "family": "Arial, sans-serif", "size": 12},
+        hoverlabel={"bgcolor": "#ffffff", "font_color": "#172033"},
+        showlegend=False,
+        boxgap=0.35,
+    )
+    figure.update_xaxes(
+        title="피해금액",
+        range=[0, axis_max_eok],
+        tickmode="array",
+        tickvals=tick_values,
+        ticktext=tick_labels,
+        title_font={"color": "#172033", "size": 12},
+        tickfont={"color": "#172033", "size": 10},
+        automargin=True,
+        showgrid=True,
+        gridcolor="rgba(101,113,135,0.20)",
+        zeroline=False,
+    )
+    # Plotly 범주축은 아래에서 위로 배치되므로 Notebook 순서가 위에서 시작되도록 뒤집습니다.
+    figure.update_yaxes(
+        categoryorder="array",
+        categoryarray=list(reversed([category_labels[item] for item in category_order])),
+        tickfont={"color": "#172033", "size": 11},
+        automargin=True,
+        showgrid=False,
+        zeroline=False,
+    )
+    return figure
+
+
+def _build_postal_fraud_type_insight() -> str:
+    return (
+        "BH 다중검정 보정 후에도 사기유형별 피해금액 분포 차이가 확인되었으며 "
+        "효과크기도 크게 나타났습니다. 다만 1~2건인 유형이 포함되어 있어 "
+        "확정적인 피해위험 순위나 인과관계로 해석하지 않습니다."
+    )
+
+
+def _build_postal_institution_insight() -> str:
+    return (
+        "BH 다중검정 보정 후에도 사칭기관별 피해금액 분포 차이가 확인되었으며 "
+        "효과크기도 크게 나타났습니다. 다만 일부 기관은 2~4건으로 표본이 작아 "
+        "확정적인 피해위험 순위로 해석하지 않습니다."
+    )
+
+
+def _render_deep_analysis_summary_strip() -> None:
+    """피해 특성 심층분석의 기존 검정 결과를 발표용으로 요약합니다."""
+    st.markdown(
+        """
+        <section class="deep-summary-strip">
+            <div class="deep-summary-grid">
+                <div class="deep-summary-item">
+                    <p class="deep-summary-label">사기유형별 피해금액</p>
+                    <p class="deep-summary-value">통계적으로 차이 확인</p>
+                    <p class="deep-summary-meta">
+                        BH 보정 후에도 유의 · 일부 유형 표본 1~2건
+                    </p>
+                </div>
+                <div class="deep-summary-item">
+                    <p class="deep-summary-label">차이의 크기</p>
+                    <p class="deep-summary-value">큰 차이</p>
+                    <p class="deep-summary-meta">효과크기 ε² = 0.257</p>
+                </div>
+                <div class="deep-summary-item">
+                    <p class="deep-summary-label">사칭기관별 피해금액</p>
+                    <p class="deep-summary-value">통계적으로 차이 확인</p>
+                    <p class="deep-summary-meta">
+                        BH 보정 후에도 유의 · 일부 기관 표본 2~4건
+                    </p>
+                </div>
+                <div class="deep-summary-item">
+                    <p class="deep-summary-label">차이의 크기</p>
+                    <p class="deep-summary-value">큰 차이</p>
+                    <p class="deep-summary-meta">효과크기 ε² = 0.308</p>
+                </div>
+            </div>
+        </section>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def render_damage_insights() -> None:
-    """피해 현황 페이지의 경찰청 P1·P2·P3 콘텐츠를 표시합니다."""
+    """경찰청 피해 추세·유형 구조와 우체국 피해금액 분포를 표시합니다."""
     with st.container(key="analysis_container"):
         try:
             trend_data = load_police_trend_data()
@@ -365,36 +705,67 @@ def render_damage_insights() -> None:
             st.error(f"P3 계산에 필요한 경찰청 데이터를 확인할 수 없습니다: {error}")
             return
 
+        try:
+            postal_damage_data = load_postal_damage_data()
+        except FileNotFoundError:
+            st.error(
+                "우체국 데이터 파일을 찾을 수 없습니다. "
+                f"확인 파일: `{POSTAL_DATA_RELATIVE_PATH.as_posix()}`"
+            )
+            return
+        except (UnicodeDecodeError, pd.errors.ParserError, ValueError) as error:
+            st.error(
+                "피해금액 분포에 필요한 우체국 데이터를 확인할 수 없습니다: "
+                f"{error}"
+            )
+            return
+
         latest = trend_data.iloc[-1]
         latest_type_data = type_data[type_data["기간"] == TYPE_LATEST_PERIOD]
         latest_type_data = latest_type_data.set_index("사기유형")
         latest_impersonation = latest_type_data.loc["기관사칭형"]
-        latest_loan = latest_type_data.loc["대출사기형"]
+        postal_sample_size = len(postal_damage_data)
+        postal_median = postal_damage_data["피해액"].median()
+        postal_mean = postal_damage_data["피해액"].mean()
 
         st.markdown(
             f"""
-            <section class="police-summary-strip">
-                <div class="police-summary-grid">
-                    <div class="police-summary-item">
-                        <p class="police-summary-label">전체 발생건수</p>
-                        <p class="police-summary-value">{int(latest['전체_발생건수']):,}건</p>
-                    </div>
-                    <div class="police-summary-item">
-                        <p class="police-summary-label">전체 피해금액</p>
-                        <p class="police-summary-value">{_format_amount(latest['전체_피해액_억원'])}</p>
-                    </div>
-                    <div class="police-summary-item">
-                        <p class="police-summary-label">기관사칭형 발생비중</p>
-                        <p class="police-summary-value">{latest_impersonation['발생건수_비중']:.1f}%</p>
-                        <p class="police-summary-secondary">
-                            대출사기형 {latest_loan['발생건수_비중']:.1f}%
+            <section class="damage-summary-strip">
+                <div class="damage-summary-grid">
+                    <div class="damage-summary-item">
+                        <p class="damage-summary-label">전체 발생건수</p>
+                        <p class="damage-summary-value">{int(latest['전체_발생건수']):,}건</p>
+                        <p class="damage-summary-meta">
+                            <span class="damage-summary-source">경찰청 · 2025</span>
                         </p>
                     </div>
-                    <div class="police-summary-item">
-                        <p class="police-summary-label">기관사칭형 피해비중</p>
-                        <p class="police-summary-value">{latest_impersonation['피해금액_비중']:.1f}%</p>
-                        <p class="police-summary-secondary">
-                            대출사기형 {latest_loan['피해금액_비중']:.1f}%
+                    <div class="damage-summary-item">
+                        <p class="damage-summary-label">전체 피해금액</p>
+                        <p class="damage-summary-value">{_format_amount(latest['전체_피해액_억원'])}</p>
+                        <p class="damage-summary-meta">
+                            <span class="damage-summary-source">경찰청 · 2025</span>
+                        </p>
+                    </div>
+                    <div class="damage-summary-item">
+                        <p class="damage-summary-label">기관사칭형 피해비중</p>
+                        <p class="damage-summary-value">{latest_impersonation['피해금액_비중']:.1f}%</p>
+                        <p class="damage-summary-meta">
+                            <span class="damage-summary-secondary">
+                                발생비중 {latest_impersonation['발생건수_비중']:.1f}%
+                            </span>
+                            <span class="damage-summary-source">경찰청 · 2025</span>
+                        </p>
+                    </div>
+                    <div class="damage-summary-item">
+                        <p class="damage-summary-label">실제 피해금액 중앙값</p>
+                        <p class="damage-summary-value">{_format_won_as_manwon(postal_median)}</p>
+                        <p class="damage-summary-meta">
+                            <span class="damage-summary-secondary">
+                                평균 약 {_format_won_as_manwon(postal_mean)}
+                            </span>
+                            <span class="damage-summary-source">
+                                우체국 · n={postal_sample_size:,}
+                            </span>
                         </p>
                     </div>
                 </div>
@@ -404,7 +775,11 @@ def render_damage_insights() -> None:
         )
 
         chart_config = {"displayModeBar": False, "responsive": True}
-        police_overview_column, police_type_column = st.columns(2, gap="medium")
+        (
+            police_overview_column,
+            police_type_column,
+            postal_damage_column,
+        ) = st.columns(3, gap="medium")
 
         with police_overview_column:
             st.markdown(
@@ -421,39 +796,16 @@ def render_damage_insights() -> None:
                 unsafe_allow_html=True,
             )
 
-            count_figure = _create_trend_figure(
-                trend_data,
-                "전체_발생건수",
-                "연도별 보이스피싱 발생건수",
-                "발생건수(건)",
-                "발생건수",
-                "건",
-            )
-            amount_figure = _create_trend_figure(
-                trend_data,
-                "전체_피해액_억원",
-                "연도별 보이스피싱 피해금액",
-                "피해금액(억원)",
-                "피해금액",
-                "억 원",
-            )
+            trend_figure = _create_damage_trend_figure(trend_data)
 
-            with st.container(key="police_count_chart", gap="small"):
+            with st.container(key="police_trend_chart", gap="small"):
                 st.plotly_chart(
-                    count_figure,
+                    trend_figure,
                     width="stretch",
                     theme=None,
                     config=chart_config,
                 )
                 st.caption(_build_count_insight(trend_data))
-
-            with st.container(key="police_amount_chart", gap="small"):
-                st.plotly_chart(
-                    amount_figure,
-                    width="stretch",
-                    theme=None,
-                    config=chart_config,
-                )
                 st.caption(_build_amount_insight(trend_data))
 
             st.markdown(
@@ -485,30 +837,10 @@ def render_damage_insights() -> None:
                 unsafe_allow_html=True,
             )
 
-            count_share_figure = _create_type_share_figure(
-                type_data,
-                "발생건수",
-                "발생건수_비중",
-                "사기유형별 발생건수 비중",
-                "건",
-            )
-            amount_share_figure = _create_type_share_figure(
-                type_data,
-                "피해금액_억원",
-                "피해금액_비중",
-                "사기유형별 피해금액 비중",
-                "억 원",
-            )
+            type_structure_figure = _create_type_structure_figure(type_data)
 
             st.plotly_chart(
-                count_share_figure,
-                width="stretch",
-                theme=None,
-                config=chart_config,
-            )
-
-            st.plotly_chart(
-                amount_share_figure,
+                type_structure_figure,
                 width="stretch",
                 theme=None,
                 config=chart_config,
@@ -523,3 +855,144 @@ def render_damage_insights() -> None:
                 """,
                 unsafe_allow_html=True,
             )
+
+        with postal_damage_column:
+            st.markdown(
+                f"""
+                <header class="analysis-section-header">
+                    <p class="analysis-source">
+                        우체국 피해사례 · n={postal_sample_size:,}
+                    </p>
+                    <h2>실제 피해금액 분포</h2>
+                    <p>
+                        실제 보이스피싱 피해사례에서 피해금액의 분포와
+                        고액 피해 사례를 확인합니다.
+                    </p>
+                </header>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            postal_damage_figure = _create_postal_damage_distribution_figure(
+                postal_damage_data
+            )
+            st.plotly_chart(
+                postal_damage_figure,
+                width="stretch",
+                theme=None,
+                config=chart_config,
+            )
+
+            st.markdown(
+                f"""
+                <aside class="analysis-insight">
+                    <strong>피해금액 인사이트</strong>
+                    <p>{_build_postal_damage_insight(postal_damage_data)}</p>
+                </aside>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        st.markdown(
+            '<div class="analysis-section-divider"></div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            f"""
+            <header class="analysis-section-header">
+                <p class="analysis-source">우체국 피해사례 · n={postal_sample_size:,}</p>
+                <h2>피해 특성 심층 분석</h2>
+                <p>
+                    사기유형과 사칭기관에 따라 실제 피해금액 분포가
+                    어떻게 나타나는지 확인합니다.
+                </p>
+            </header>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        _render_deep_analysis_summary_strip()
+
+        fraud_type_column, institution_column = st.columns(2, gap="medium")
+
+        with fraud_type_column:
+            st.markdown(
+                """
+                <header class="analysis-section-header analysis-subsection-header">
+                    <p class="analysis-source">우체국 피해사례 · 사기유형별 비교</p>
+                    <h2>사기유형별 피해금액</h2>
+                    <p>
+                        사기유형에 따라 실제 피해금액 분포가 어떻게 다른지 비교합니다.
+                    </p>
+                </header>
+                """,
+                unsafe_allow_html=True,
+            )
+            fraud_type_figure = _create_postal_category_damage_figure(
+                postal_damage_data,
+                "사기유형",
+            )
+            st.plotly_chart(
+                fraud_type_figure,
+                width="stretch",
+                theme=None,
+                config=chart_config,
+                key="postal_fraud_type_damage_chart",
+            )
+            st.markdown(
+                f"""
+                <aside class="analysis-insight">
+                    <strong>사기유형별 피해금액 차이</strong>
+                    <p>{_build_postal_fraud_type_insight()}</p>
+                </aside>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        with institution_column:
+            st.markdown(
+                """
+                <header class="analysis-section-header analysis-subsection-header">
+                    <p class="analysis-source">우체국 피해사례 · 사칭기관별 비교</p>
+                    <h2>사칭기관별 피해금액</h2>
+                    <p>
+                        사칭기관에 따라 실제 피해금액 분포가 어떻게 다른지 비교합니다.
+                    </p>
+                </header>
+                """,
+                unsafe_allow_html=True,
+            )
+            institution_figure = _create_postal_category_damage_figure(
+                postal_damage_data,
+                "사칭기관",
+            )
+            st.plotly_chart(
+                institution_figure,
+                width="stretch",
+                theme=None,
+                config=chart_config,
+                key="postal_institution_damage_chart",
+            )
+            st.markdown(
+                f"""
+                <aside class="analysis-insight">
+                    <strong>사칭기관별 피해금액 차이</strong>
+                    <p>{_build_postal_institution_insight()}</p>
+                </aside>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        st.markdown(
+            f"""
+            <aside class="analysis-caution">
+                <strong>해석 주의</strong>
+                <p>
+                    우체국 데이터는 실제 피해사례 {postal_sample_size:,}건 표본입니다.
+                    일부 사기유형·사칭기관의 표본 수가 작으며, 확인된 분포 차이는
+                    인과관계나 자동 차단 기준, 위험 가중치 확정을 의미하지 않습니다.
+                </p>
+            </aside>
+            """,
+            unsafe_allow_html=True,
+        )
