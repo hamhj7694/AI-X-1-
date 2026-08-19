@@ -386,6 +386,19 @@ def apply_styles() -> None:
                 line-height: 1.7;
             }
 
+            .analysis-subsection-header {
+                margin-bottom: 0.85rem;
+            }
+
+            .analysis-subsection-header h2 {
+                font-size: 1.3rem;
+            }
+
+            .analysis-subsection-header > p:last-child {
+                font-size: 0.9rem;
+                line-height: 1.6;
+            }
+
             .police-trend-header {
                 margin-bottom: 0.9rem;
             }
@@ -398,7 +411,7 @@ def apply_styles() -> None:
                 margin-top: 0.4rem;
             }
 
-            .police-summary-strip {
+            .damage-summary-strip {
                 margin-bottom: 1.25rem;
                 padding: 0.85rem 1rem;
                 border: 1px solid var(--border);
@@ -406,28 +419,28 @@ def apply_styles() -> None:
                 background: var(--surface);
             }
 
-            .police-summary-title {
+            .damage-summary-title {
                 margin: 0 0 0.65rem;
                 color: var(--primary-dark);
                 font-size: 0.9rem;
                 font-weight: 750;
             }
 
-            .police-summary-grid {
+            .damage-summary-grid {
                 display: grid;
                 grid-template-columns: repeat(4, minmax(0, 1fr));
             }
 
-            .police-summary-item {
+            .damage-summary-item {
                 min-width: 0;
                 padding: 0.1rem 1rem;
             }
 
-            .police-summary-item + .police-summary-item {
+            .damage-summary-item + .damage-summary-item {
                 border-left: 1px solid var(--border);
             }
 
-            .police-summary-label {
+            .damage-summary-label {
                 margin: 0 0 0.2rem;
                 color: var(--text-muted);
                 font-size: 0.82rem;
@@ -435,7 +448,7 @@ def apply_styles() -> None:
                 line-height: 1.35;
             }
 
-            .police-summary-value {
+            .damage-summary-value {
                 margin: 0;
                 color: var(--text-main);
                 font-size: 1.35rem;
@@ -443,18 +456,77 @@ def apply_styles() -> None:
                 line-height: 1.25;
             }
 
-            .police-summary-secondary {
+            .damage-summary-meta {
+                display: flex;
+                flex-wrap: wrap;
+                align-items: baseline;
+                justify-content: space-between;
+                gap: 0.15rem 0.45rem;
                 margin: 0.25rem 0 0;
-                color: var(--text-muted);
-                font-size: 0.78rem;
                 line-height: 1.35;
             }
 
+            .damage-summary-secondary {
+                color: var(--text-muted);
+                font-size: 0.78rem;
+            }
+
+            .damage-summary-source {
+                margin-left: auto;
+                color: #8a96a8;
+                font-size: 0.68rem;
+                white-space: nowrap;
+            }
+
+            .deep-summary-strip {
+                margin-bottom: 1.25rem;
+                padding: 0.65rem 0.8rem;
+                border: 1px solid var(--border);
+                border-top: 2px solid rgba(31, 95, 174, 0.55);
+                border-radius: 0.65rem;
+                background: var(--surface);
+            }
+
+            .deep-summary-grid {
+                display: grid;
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+            }
+
+            .deep-summary-item {
+                min-width: 0;
+                padding: 0.05rem 0.75rem;
+            }
+
+            .deep-summary-item + .deep-summary-item {
+                border-left: 1px solid var(--border);
+            }
+
+            .deep-summary-label {
+                margin: 0 0 0.15rem;
+                color: var(--text-muted);
+                font-size: 0.74rem;
+                font-weight: 650;
+                line-height: 1.3;
+            }
+
+            .deep-summary-value {
+                margin: 0;
+                color: var(--primary-dark);
+                font-size: 1.02rem;
+                font-weight: 750;
+                line-height: 1.3;
+            }
+
+            .deep-summary-meta {
+                margin: 0.15rem 0 0;
+                color: var(--text-muted);
+                font-size: 0.7rem;
+                line-height: 1.3;
+            }
+
             /* 출처 문구는 본문보다 약하게 유지하되 기본 caption보다 선명하게 표시합니다. */
-            .st-key-police_count_chart [data-testid="stCaptionContainer"],
-            .st-key-police_count_chart [data-testid="stCaptionContainer"] p,
-            .st-key-police_amount_chart [data-testid="stCaptionContainer"],
-            .st-key-police_amount_chart [data-testid="stCaptionContainer"] p {
+            .st-key-police_trend_chart [data-testid="stCaptionContainer"],
+            .st-key-police_trend_chart [data-testid="stCaptionContainer"] p {
                 color: #526078 !important;
             }
 
@@ -486,24 +558,583 @@ def apply_styles() -> None:
                 line-height: 1.65;
             }
 
+            .analysis-caution {
+                margin-top: 1.35rem;
+                padding: 0.8rem 1rem;
+                border: 1px solid var(--border);
+                border-radius: 0.5rem;
+                background: #f8fafc;
+                color: var(--text-main);
+            }
+
+            .analysis-caution strong {
+                color: var(--primary-dark);
+                font-size: 0.9rem;
+            }
+
+            .analysis-caution p {
+                margin: 0.3rem 0 0;
+                color: var(--text-muted);
+                font-size: 0.86rem;
+                line-height: 1.55;
+            }
+
+            /* 전처리 페이지 전용: 흐름과 핵심 수치를 발표 화면에서 빠르게 읽도록 구성합니다. */
+            .preprocess-overview {
+                margin-bottom: 1rem;
+                padding: 0.75rem 0.9rem 0.65rem;
+                overflow-x: auto;
+                border: 1px solid var(--border);
+                border-radius: 0.75rem;
+                background: var(--surface);
+            }
+
+            .preprocess-process-track {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 0.35rem;
+                min-width: 760px;
+            }
+
+            .preprocess-process-step {
+                flex: 1 1 0;
+                min-width: 98px;
+                text-align: center;
+            }
+
+            .preprocess-process-step strong,
+            .preprocess-process-step span {
+                display: block;
+            }
+
+            .preprocess-process-step strong {
+                color: var(--text-main);
+                font-size: 0.83rem;
+                line-height: 1.35;
+            }
+
+            .preprocess-process-step span {
+                margin-top: 0.15rem;
+                color: var(--text-muted);
+                font-size: 0.68rem;
+                line-height: 1.3;
+                white-space: nowrap;
+            }
+
+            .preprocess-process-arrow {
+                flex: 0 0 auto;
+                color: var(--primary);
+                font-size: 1rem;
+                font-weight: 750;
+            }
+
+            .preprocess-overview-note {
+                margin: 0.6rem 0 0;
+                padding-top: 0.55rem;
+                border-top: 1px solid var(--border);
+                color: var(--text-muted);
+                font-size: 0.78rem;
+                line-height: 1.45;
+                text-align: center;
+            }
+
+            .preprocess-panel {
+                height: 100%;
+                min-height: 34rem;
+                padding: 1.05rem 1.1rem;
+                border: 1px solid var(--border);
+                border-top: 3px solid var(--primary);
+                border-radius: 0.75rem;
+                background: var(--surface);
+            }
+
+            .preprocess-panel-header {
+                margin-bottom: 0.8rem;
+            }
+
+            .preprocess-kicker {
+                margin: 0 0 0.15rem;
+                color: var(--primary);
+                font-size: 0.7rem;
+                font-weight: 750;
+                letter-spacing: 0.06em;
+            }
+
+            .preprocess-panel-header h2 {
+                margin: 0;
+                color: var(--text-main);
+                font-size: 1.3rem;
+                line-height: 1.35;
+            }
+
+            .preprocess-panel-header > p:last-child {
+                margin: 0.3rem 0 0;
+                color: var(--text-muted);
+                font-size: 0.82rem;
+                line-height: 1.45;
+            }
+
+            .preprocess-flow,
+            .preprocess-selection {
+                border-top: 1px solid var(--border);
+            }
+
+            .preprocess-flow-step {
+                display: flex;
+                align-items: center;
+                gap: 0.65rem;
+                min-height: 2.45rem;
+                padding: 0.38rem 0.15rem;
+                border-bottom: 1px solid var(--border);
+            }
+
+            .preprocess-flow-step > span {
+                display: flex;
+                flex: 0 0 1.65rem;
+                align-items: center;
+                justify-content: center;
+                width: 1.65rem;
+                height: 1.65rem;
+                border-radius: 50%;
+                background: var(--primary-soft);
+                color: var(--primary-dark);
+                font-size: 0.63rem;
+                font-weight: 750;
+            }
+
+            .preprocess-flow-step strong {
+                color: var(--text-main);
+                font-size: 0.8rem;
+                line-height: 1.35;
+            }
+
+            .preprocess-flow-step small {
+                display: block;
+                margin-top: 0.08rem;
+                color: var(--text-muted);
+                font-size: 0.68rem;
+                line-height: 1.35;
+            }
+
+            .preprocess-formulas {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 0.45rem;
+                margin-top: 0.7rem;
+            }
+
+            .preprocess-formulas > div {
+                padding: 0.55rem 0.6rem;
+                border-radius: 0.45rem;
+                background: var(--primary-soft);
+            }
+
+            .preprocess-formulas span,
+            .preprocess-formulas strong {
+                display: block;
+                overflow-wrap: anywhere;
+            }
+
+            .preprocess-formulas span {
+                color: var(--text-muted);
+                font-size: 0.61rem;
+                line-height: 1.35;
+            }
+
+            .preprocess-formulas strong {
+                margin-top: 0.3rem;
+                color: var(--primary-dark);
+                font-size: 0.73rem;
+                line-height: 1.35;
+            }
+
+            .preprocess-formulas strong::before {
+                content: "→ ";
+                color: var(--primary);
+            }
+
+            .preprocess-result-block,
+            .preprocess-variable-block {
+                margin-top: 0.7rem;
+                padding: 0.65rem;
+                border: 1px solid var(--border);
+                border-radius: 0.55rem;
+            }
+
+            .preprocess-result-title {
+                margin: 0 0 0.45rem;
+                color: var(--text-main);
+                font-size: 0.76rem;
+                font-weight: 750;
+            }
+
+            .preprocess-result-grid,
+            .preprocess-variable-grid {
+                display: grid;
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+            }
+
+            .preprocess-result-grid > div,
+            .preprocess-variable-grid > div {
+                min-width: 0;
+                padding: 0 0.4rem;
+                text-align: center;
+            }
+
+            .preprocess-result-grid > div + div,
+            .preprocess-variable-grid > div + div {
+                border-left: 1px solid var(--border);
+            }
+
+            .preprocess-result-grid strong,
+            .preprocess-result-grid span,
+            .preprocess-variable-grid strong,
+            .preprocess-variable-grid span {
+                display: block;
+            }
+
+            .preprocess-result-grid strong {
+                color: var(--primary-dark);
+                font-size: 0.88rem;
+                line-height: 1.3;
+            }
+
+            .preprocess-result-grid span {
+                margin-top: 0.12rem;
+                color: var(--text-muted);
+                font-size: 0.63rem;
+                line-height: 1.25;
+            }
+
+            .preprocess-principle {
+                margin: 0.65rem 0 0;
+                padding: 0.48rem 0.6rem;
+                border-left: 3px solid var(--primary);
+                border-radius: 0.3rem;
+                background: var(--primary-soft);
+                color: var(--text-muted);
+                font-size: 0.7rem;
+                line-height: 1.4;
+            }
+
+            .preprocess-postal-principle {
+                margin-top: 0.8rem;
+                margin-bottom: 0.8rem;
+            }
+
+            .preprocess-postal-principle + .preprocess-variable-block {
+                margin-top: 0;
+            }
+
+            .preprocess-selection-step {
+                position: relative;
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) auto;
+                gap: 0.08rem 0.8rem;
+                align-items: center;
+                min-height: 2.9rem;
+                padding: 0.42rem 0.55rem;
+                border-bottom: 1px solid var(--border);
+            }
+
+            .preprocess-selection-step:not(:last-child)::after {
+                content: "↓";
+                position: absolute;
+                bottom: -0.43rem;
+                left: 50%;
+                z-index: 1;
+                padding: 0 0.18rem;
+                background: var(--surface);
+                color: var(--primary);
+                font-size: 0.72rem;
+                font-weight: 750;
+            }
+
+            .preprocess-selection-step > span {
+                color: var(--text-main);
+                font-size: 0.79rem;
+                font-weight: 650;
+            }
+
+            .preprocess-selection-step > strong {
+                color: var(--primary-dark);
+                font-size: 1rem;
+                line-height: 1.3;
+                white-space: nowrap;
+            }
+
+            .preprocess-selection-step > small {
+                grid-column: 1 / -1;
+                color: var(--text-muted);
+                font-size: 0.64rem;
+                line-height: 1.3;
+            }
+
+            .preprocess-selection-step.is-final {
+                margin-top: 0.35rem;
+                border: 0;
+                border-radius: 0.45rem;
+                background: var(--primary-soft);
+            }
+
+            .preprocess-variable-heading {
+                display: flex;
+                align-items: baseline;
+                justify-content: space-between;
+                gap: 0.5rem;
+                margin-bottom: 0.5rem;
+            }
+
+            .preprocess-variable-heading span {
+                color: var(--text-muted);
+                font-size: 0.7rem;
+                font-weight: 650;
+            }
+
+            .preprocess-variable-heading strong {
+                color: var(--primary-dark);
+                font-size: 0.9rem;
+                white-space: nowrap;
+            }
+
+            .preprocess-variable-grid > div {
+                display: flex;
+                flex-direction: column-reverse;
+                justify-content: flex-end;
+            }
+
+            .preprocess-variable-grid span {
+                margin-top: 0.12rem;
+                color: var(--text-muted);
+                font-size: 0.6rem;
+                line-height: 1.25;
+            }
+
+            .preprocess-variable-grid strong {
+                color: var(--text-main);
+                font-size: 0.82rem;
+                line-height: 1.3;
+            }
+
+            .preprocess-outlier-section {
+                margin-top: 1.35rem;
+            }
+
+            .preprocess-outlier-header {
+                margin-bottom: 0.7rem;
+            }
+
+            .preprocess-outlier-header h2 {
+                margin: 0;
+                color: var(--text-main);
+                font-size: 1.35rem;
+                line-height: 1.4;
+            }
+
+            .preprocess-outlier-header > p:not(.preprocess-kicker) {
+                margin: 0.3rem 0 0;
+                color: var(--text-muted);
+                font-size: 0.82rem;
+                line-height: 1.5;
+            }
+
+            .preprocess-outlier-header small {
+                display: block;
+                margin-top: 0.15rem;
+                color: var(--text-muted);
+                font-size: 0.68rem;
+                line-height: 1.4;
+            }
+
+            .preprocess-iqr-strip {
+                display: grid;
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+                padding: 0.7rem 0.8rem;
+                border: 1px solid var(--border);
+                border-radius: 0.65rem;
+                background: var(--surface);
+            }
+
+            .preprocess-iqr-strip > div {
+                min-width: 0;
+                padding: 0.05rem 0.8rem;
+                text-align: center;
+            }
+
+            .preprocess-iqr-strip > div + div {
+                border-left: 1px solid var(--border);
+            }
+
+            .preprocess-iqr-strip span,
+            .preprocess-iqr-strip strong {
+                display: block;
+            }
+
+            .preprocess-iqr-strip span {
+                color: var(--text-muted);
+                font-size: 0.7rem;
+                font-weight: 650;
+            }
+
+            .preprocess-iqr-strip strong {
+                margin-top: 0.15rem;
+                color: var(--primary-dark);
+                font-size: 1.05rem;
+                line-height: 1.35;
+            }
+
+            .preprocess-outlier-card {
+                min-height: 12.5rem;
+                margin-top: 0.8rem;
+                padding: 0.85rem 0.95rem;
+                border: 1px solid var(--border);
+                border-radius: 0.65rem;
+                background: var(--surface);
+            }
+
+            .preprocess-outlier-card-title {
+                margin: 0 0 0.55rem;
+                color: var(--text-main);
+                font-size: 0.82rem;
+                font-weight: 750;
+            }
+
+            .preprocess-outlier-number {
+                display: flex;
+                align-items: baseline;
+                gap: 0.5rem;
+            }
+
+            .preprocess-outlier-number strong {
+                color: var(--primary-dark);
+                font-size: 1.35rem;
+                line-height: 1.3;
+            }
+
+            .preprocess-outlier-number span {
+                color: var(--text-muted);
+                font-size: 0.72rem;
+            }
+
+            .preprocess-outlier-decision {
+                display: inline-block;
+                margin: 0.45rem 0 0;
+                padding: 0.2rem 0.5rem;
+                border-radius: 999px;
+                background: var(--primary-soft);
+                color: var(--primary-dark);
+                font-size: 0.68rem;
+                font-weight: 750;
+            }
+
+            .preprocess-outlier-copy {
+                margin: 0.55rem 0 0;
+                color: var(--text-muted);
+                font-size: 0.72rem;
+                line-height: 1.5;
+            }
+
+            .preprocess-average-flow {
+                display: grid;
+                grid-template-columns: 1fr;
+                gap: 0.25rem;
+                align-items: center;
+                text-align: center;
+            }
+
+            .preprocess-average-flow div {
+                padding: 0.45rem 0.55rem;
+                border-radius: 0.45rem;
+                background: var(--primary-soft);
+            }
+
+            .preprocess-average-flow span,
+            .preprocess-average-flow strong {
+                display: block;
+            }
+
+            .preprocess-average-flow span {
+                color: var(--text-muted);
+                font-size: 0.65rem;
+            }
+
+            .preprocess-average-flow strong {
+                margin-top: 0.12rem;
+                color: var(--primary-dark);
+                font-size: 0.9rem;
+                line-height: 1.35;
+            }
+
+            .preprocess-average-flow b {
+                color: var(--primary);
+                font-size: 0.9rem;
+            }
+
+            .preprocess-average-flow p {
+                margin: 0;
+                color: var(--primary-dark);
+                font-size: 0.78rem;
+                font-weight: 750;
+                white-space: nowrap;
+            }
+
+            .preprocess-completion-note {
+                display: flex;
+                align-items: center;
+                gap: 0.65rem;
+                margin-top: 0.8rem;
+                padding: 0.55rem 0.75rem;
+                border-left: 3px solid var(--primary);
+                background: var(--primary-soft);
+                color: var(--text-muted);
+                font-size: 0.75rem;
+                line-height: 1.4;
+            }
+
+            .preprocess-completion-note strong {
+                color: var(--primary-dark);
+                white-space: nowrap;
+            }
+
             @media (max-width: 900px) {
-                .police-summary-grid {
+                .damage-summary-grid {
                     grid-template-columns: repeat(2, minmax(0, 1fr));
                 }
 
-                .police-summary-item {
-                    padding: 0.5rem 1rem;
+                .deep-summary-grid {
+                    grid-template-columns: repeat(2, minmax(0, 1fr));
                 }
 
-                .police-summary-item + .police-summary-item {
+                .deep-summary-item {
+                    padding: 0.4rem 0.75rem;
+                }
+
+                .deep-summary-item + .deep-summary-item {
                     border-left: 0;
                 }
 
-                .police-summary-item:nth-child(even) {
+                .deep-summary-item:nth-child(even) {
                     border-left: 1px solid var(--border);
                 }
 
-                .police-summary-item:nth-child(n + 3) {
+                .deep-summary-item:nth-child(n + 3) {
+                    border-top: 1px solid var(--border);
+                }
+
+                .damage-summary-item {
+                    padding: 0.5rem 1rem;
+                }
+
+                .damage-summary-item + .damage-summary-item {
+                    border-left: 0;
+                }
+
+                .damage-summary-item:nth-child(even) {
+                    border-left: 1px solid var(--border);
+                }
+
+                .damage-summary-item:nth-child(n + 3) {
                     border-top: 1px solid var(--border);
                 }
             }
@@ -519,15 +1150,27 @@ def apply_styles() -> None:
                     margin-top: 0;
                 }
 
-                .police-summary-grid {
+                .damage-summary-grid {
                     grid-template-columns: 1fr;
                 }
 
-                .police-summary-item:nth-child(even) {
+                .deep-summary-grid {
+                    grid-template-columns: 1fr;
+                }
+
+                .deep-summary-item:nth-child(even) {
                     border-left: 0;
                 }
 
-                .police-summary-item:nth-child(n + 2) {
+                .deep-summary-item:nth-child(n + 2) {
+                    border-top: 1px solid var(--border);
+                }
+
+                .damage-summary-item:nth-child(even) {
+                    border-left: 0;
+                }
+
+                .damage-summary-item:nth-child(n + 2) {
                     border-top: 1px solid var(--border);
                 }
 
@@ -577,6 +1220,60 @@ def apply_styles() -> None:
                 .overview-points li {
                     grid-template-columns: 1fr;
                     gap: 0.1rem;
+
+                .preprocess-panel {
+                    min-height: 0;
+                    padding: 0.95rem;
+                }
+
+                .preprocess-formulas {
+                    grid-template-columns: 1fr;
+                }
+
+                .preprocess-result-grid,
+                .preprocess-variable-grid {
+                    grid-template-columns: repeat(2, minmax(0, 1fr));
+                }
+
+                .preprocess-result-grid > div,
+                .preprocess-variable-grid > div {
+                    padding: 0.35rem;
+                }
+
+                .preprocess-result-grid > div:nth-child(3),
+                .preprocess-variable-grid > div:nth-child(3) {
+                    border-left: 0;
+                }
+
+                .preprocess-result-grid > div:nth-child(n + 3),
+                .preprocess-variable-grid > div:nth-child(n + 3) {
+                    border-top: 1px solid var(--border);
+                }
+
+                .preprocess-iqr-strip {
+                    grid-template-columns: repeat(2, minmax(0, 1fr));
+                }
+
+                .preprocess-iqr-strip > div {
+                    padding: 0.4rem;
+                }
+
+                .preprocess-iqr-strip > div:nth-child(3) {
+                    border-left: 0;
+                }
+
+                .preprocess-iqr-strip > div:nth-child(n + 3) {
+                    border-top: 1px solid var(--border);
+                }
+
+                .preprocess-outlier-card {
+                    min-height: 0;
+                }
+
+                .preprocess-completion-note {
+                    align-items: flex-start;
+                    flex-direction: column;
+                    gap: 0.15rem;
                 }
             }
         </style>
