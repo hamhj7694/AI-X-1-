@@ -1220,7 +1220,8 @@ def apply_styles() -> None:
                 .overview-points li {
                     grid-template-columns: 1fr;
                     gap: 0.1rem;
-
+                }
+                
                 .preprocess-panel {
                     min-height: 0;
                     padding: 0.95rem;
