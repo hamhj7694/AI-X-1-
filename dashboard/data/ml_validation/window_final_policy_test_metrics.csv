@@ -1,0 +1,2 @@
+﻿policy,threshold,risk_score_threshold,call_recall,call_precision,normal_call_fpr,specificity,f1,f2,youden_j,alerted_call_rate,median_first_alert_end_turn_phish,median_first_alert_relative_position_phish,n_calls,n_phishing_calls,n_normal_calls,tn,fp,fn,tp,selection_status_from_validation
+SINGLE,0.69,69.0,0.5324675324675324,0.8723404255319149,0.10526315789473684,0.8947368421052632,0.6612903225806451,0.5774647887323943,0.4272043745727956,0.35074626865671643,10.0,0.25,134,77,57,51,6,36,41,COMPROMISE

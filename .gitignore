@@ -12,6 +12,9 @@
 **/*.pt
 **/*.pth
 **/*.ckpt
+**/*.pkl
+**/*.pickle
+**/*.joblib
 
 # Raw media and archives
 **/*.mp4
