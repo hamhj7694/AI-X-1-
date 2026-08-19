@@ -8,7 +8,7 @@ st.set_page_config(
     initial_sidebar_state="locked",
 )
 
-from components.overview import render_overview
+from components.overview_clean import render_overview
 from components.pages import (
     render_call_insights,
     render_damage_insights,

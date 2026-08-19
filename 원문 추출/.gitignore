@@ -23,7 +23,6 @@
 *.rar
 
 # Data tables and spreadsheet review files
-*.csv
 *.tsv
 *.parquet
 *.feather
