@@ -103,9 +103,12 @@ def apply_styles() -> None:
             }
 
             .block-container {
-                max-width: 1500px;
+                width: 100%;
+                max-width: none;
                 padding-top: 3.5rem;
+                padding-right: 2rem;
                 padding-bottom: 4rem;
+                padding-left: 2rem;
             }
 
             /* 페이지별 컨테이너 key를 사용해 너비 값을 쉽게 구분합니다. */
@@ -117,8 +120,10 @@ def apply_styles() -> None:
 
             .st-key-analysis_container {
                 width: 100%;
-                max-width: 1500px;
-                margin: 0 auto;
+                max-width: none;
+                margin-top: -1.5rem;
+                margin-right: auto;
+                margin-left: auto;
             }
 
             .page-header {
@@ -187,14 +192,6 @@ def apply_styles() -> None:
                 line-height: 1.7;
             }
 
-            .page-placeholder {
-                padding: 1.65rem 1.75rem;
-                border: 1px solid var(--border);
-                border-radius: 0.9rem;
-                background: var(--surface);
-                box-shadow: 0 4px 16px rgba(31, 70, 120, 0.045);
-            }
-
             .page-placeholder h2 {
                 margin: 0 0 0.65rem;
                 color: var(--text-main);
@@ -208,9 +205,175 @@ def apply_styles() -> None:
                 line-height: 1.7;
             }
 
+            .analysis-section-header {
+                margin-bottom: 1.25rem;
+            }
+
+            .analysis-section-header .analysis-source {
+                margin: 0 0 0.35rem;
+                color: var(--primary);
+                font-size: 0.78rem;
+                font-weight: 700;
+                letter-spacing: 0.04em;
+            }
+
+            .analysis-section-header h2 {
+                margin: 0;
+                color: var(--text-main);
+                font-size: 1.65rem;
+                line-height: 1.4;
+            }
+
+            .analysis-section-header > p:last-child {
+                margin: 0.5rem 0 0;
+                color: var(--text-muted);
+                font-size: 0.95rem;
+                line-height: 1.7;
+            }
+
+            .police-trend-header {
+                margin-bottom: 0.9rem;
+            }
+
+            .police-trend-header .analysis-source {
+                margin-bottom: 0.25rem;
+            }
+
+            .police-trend-header > p:last-child {
+                margin-top: 0.4rem;
+            }
+
+            .police-summary-strip {
+                margin-bottom: 1.25rem;
+                padding: 0.85rem 1rem;
+                border: 1px solid var(--border);
+                border-radius: 0.75rem;
+                background: var(--surface);
+            }
+
+            .police-summary-title {
+                margin: 0 0 0.65rem;
+                color: var(--primary-dark);
+                font-size: 0.9rem;
+                font-weight: 750;
+            }
+
+            .police-summary-grid {
+                display: grid;
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+            }
+
+            .police-summary-item {
+                min-width: 0;
+                padding: 0.1rem 1rem;
+            }
+
+            .police-summary-item + .police-summary-item {
+                border-left: 1px solid var(--border);
+            }
+
+            .police-summary-label {
+                margin: 0 0 0.2rem;
+                color: var(--text-muted);
+                font-size: 0.82rem;
+                font-weight: 600;
+                line-height: 1.35;
+            }
+
+            .police-summary-value {
+                margin: 0;
+                color: var(--text-main);
+                font-size: 1.35rem;
+                font-weight: 750;
+                line-height: 1.25;
+            }
+
+            .police-summary-secondary {
+                margin: 0.25rem 0 0;
+                color: var(--text-muted);
+                font-size: 0.78rem;
+                line-height: 1.35;
+            }
+
+            /* 출처 문구는 본문보다 약하게 유지하되 기본 caption보다 선명하게 표시합니다. */
+            .st-key-police_count_chart [data-testid="stCaptionContainer"],
+            .st-key-police_count_chart [data-testid="stCaptionContainer"] p,
+            .st-key-police_amount_chart [data-testid="stCaptionContainer"],
+            .st-key-police_amount_chart [data-testid="stCaptionContainer"] p {
+                color: #526078 !important;
+            }
+
+            .analysis-insight {
+                margin-top: 1.15rem;
+                padding: 1rem 1.15rem;
+                border-left: 4px solid var(--primary);
+                border-radius: 0.35rem;
+                background: var(--primary-soft);
+                color: var(--text-main);
+            }
+
+            .police-trend-insight {
+                margin-top: 0.75rem;
+            }
+
+            .analysis-section-divider {
+                margin: 2.25rem 0 1.75rem;
+                border-top: 1px solid var(--border);
+            }
+
+            .analysis-insight strong {
+                color: var(--primary-dark);
+            }
+
+            .analysis-insight p {
+                margin: 0.35rem 0 0;
+                font-size: 0.94rem;
+                line-height: 1.65;
+            }
+
+            @media (max-width: 900px) {
+                .police-summary-grid {
+                    grid-template-columns: repeat(2, minmax(0, 1fr));
+                }
+
+                .police-summary-item {
+                    padding: 0.5rem 1rem;
+                }
+
+                .police-summary-item + .police-summary-item {
+                    border-left: 0;
+                }
+
+                .police-summary-item:nth-child(even) {
+                    border-left: 1px solid var(--border);
+                }
+
+                .police-summary-item:nth-child(n + 3) {
+                    border-top: 1px solid var(--border);
+                }
+            }
+
             @media (max-width: 640px) {
                 .block-container {
                     padding-top: 2rem;
+                    padding-right: 1rem;
+                    padding-left: 1rem;
+                }
+
+                .st-key-analysis_container {
+                    margin-top: 0;
+                }
+
+                .police-summary-grid {
+                    grid-template-columns: 1fr;
+                }
+
+                .police-summary-item:nth-child(even) {
+                    border-left: 0;
+                }
+
+                .police-summary-item:nth-child(n + 2) {
+                    border-top: 1px solid var(--border);
                 }
 
                 .overview-card {
