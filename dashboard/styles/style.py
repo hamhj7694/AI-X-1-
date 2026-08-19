@@ -185,11 +185,166 @@ def apply_styles() -> None:
                 line-height: 1.4;
             }
 
+            .card-content {
+                flex: 1 1 auto;
+                min-width: 0;
+            }
+
             .card-content p {
                 margin: 0;
                 color: var(--text-muted);
                 font-size: 0.95rem;
                 line-height: 1.7;
+            }
+
+            .card-content .card-lead {
+                max-width: 760px;
+                color: var(--text-main);
+                font-size: 0.97rem;
+            }
+
+            .overview-points {
+                display: grid;
+                gap: 0.55rem;
+                margin: 1rem 0 0;
+                padding: 0;
+                list-style: none;
+            }
+
+            .overview-points li {
+                display: grid;
+                grid-template-columns: 6.25rem minmax(0, 1fr);
+                gap: 0.75rem;
+                color: var(--text-muted);
+                font-size: 0.92rem;
+                line-height: 1.55;
+            }
+
+            .overview-points strong {
+                color: var(--text-main);
+            }
+
+            .contest-link {
+                margin-top: 1rem !important;
+            }
+
+            .service-flow {
+                margin-top: 1rem;
+                padding: 0.75rem 0.9rem;
+                border-radius: 0.65rem;
+                background: var(--primary-soft);
+                color: var(--primary);
+                font-size: 0.9rem;
+                font-weight: 700;
+                line-height: 1.55;
+            }
+
+            .contest-poster-wrap {
+                flex: 0 0 220px;
+                align-self: stretch;
+                overflow: hidden;
+                border: 1px solid var(--border);
+                border-radius: 0.75rem;
+                background: var(--primary-soft);
+            }
+
+            .contest-poster-trigger {
+                position: relative;
+                display: block;
+                width: 100%;
+                height: 100%;
+                cursor: zoom-in;
+            }
+
+            .contest-poster {
+                display: block;
+                width: 100%;
+                height: 100%;
+                min-height: 285px;
+                object-fit: contain;
+                object-position: top center;
+            }
+
+            .poster-zoom-label {
+                position: absolute;
+                right: 0.55rem;
+                bottom: 0.55rem;
+                padding: 0.32rem 0.55rem;
+                border-radius: 999px;
+                background: rgba(15, 23, 42, 0.78);
+                color: #ffffff;
+                font-size: 0.72rem;
+                font-weight: 700;
+                opacity: 0;
+                transform: translateY(0.25rem);
+                transition: opacity 0.18s ease, transform 0.18s ease;
+            }
+
+            .contest-poster-trigger:hover .poster-zoom-label,
+            .contest-poster-trigger:focus-visible .poster-zoom-label {
+                opacity: 1;
+                transform: translateY(0);
+            }
+
+            .poster-lightbox {
+                position: fixed;
+                z-index: 99999;
+                inset: 0;
+                display: none;
+                align-items: center;
+                justify-content: center;
+                padding: 2rem;
+            }
+
+            .poster-lightbox:target {
+                display: flex;
+            }
+
+            .poster-lightbox-backdrop {
+                position: absolute;
+                inset: 0;
+                background: rgba(8, 15, 29, 0.88);
+                backdrop-filter: blur(4px);
+            }
+
+            .poster-lightbox-dialog {
+                position: relative;
+                z-index: 1;
+                display: flex;
+                max-width: min(92vw, 900px);
+                max-height: 92vh;
+                padding: 0.7rem;
+                border-radius: 0.9rem;
+                background: #ffffff;
+                box-shadow: 0 24px 70px rgba(0, 0, 0, 0.4);
+            }
+
+            .poster-lightbox-dialog img {
+                display: block;
+                max-width: 100%;
+                max-height: calc(92vh - 1.4rem);
+                border-radius: 0.45rem;
+                object-fit: contain;
+            }
+
+            .poster-lightbox-close {
+                position: absolute;
+                z-index: 2;
+                top: -0.9rem;
+                right: -0.9rem;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 2.35rem;
+                height: 2.35rem;
+                border: 2px solid #ffffff;
+                border-radius: 50%;
+                background: #0f172a;
+                color: #ffffff !important;
+                font-size: 1.55rem;
+                line-height: 1;
+                text-decoration: none !important;
+                box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
             }
 
             .page-placeholder h2 {
@@ -378,6 +533,50 @@ def apply_styles() -> None:
 
                 .overview-card {
                     padding: 1.25rem;
+                }
+
+                .overview-card--with-poster {
+                    flex-wrap: wrap;
+                }
+
+                .overview-card--with-poster .card-content {
+                    flex-basis: calc(100% - 4rem);
+                }
+
+                .contest-poster-wrap {
+                    flex: 1 1 100%;
+                    height: auto;
+                    margin-left: 3.85rem;
+                }
+
+                .contest-poster {
+                    height: auto;
+                    max-height: 520px;
+                    object-fit: contain;
+                }
+
+                .poster-lightbox {
+                    padding: 1rem;
+                }
+
+                .poster-lightbox-dialog {
+                    max-width: 96vw;
+                    max-height: 94vh;
+                    padding: 0.45rem;
+                }
+
+                .poster-lightbox-dialog img {
+                    max-height: calc(94vh - 0.9rem);
+                }
+
+                .poster-lightbox-close {
+                    top: 0.4rem;
+                    right: 0.4rem;
+                }
+
+                .overview-points li {
+                    grid-template-columns: 1fr;
+                    gap: 0.1rem;
                 }
             }
         </style>
