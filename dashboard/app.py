@@ -10,9 +10,11 @@ st.set_page_config(
 
 from components.overview import render_overview
 from components.pages import (
-    render_data_insights,
-    render_dataset_info,
-    render_ml_insights,
+    render_call_insights,
+    render_damage_insights,
+    render_data_intro,
+    render_demo,
+    render_ml_validation,
     render_preprocessing,
 )
 from components.sidebar import render_sidebar
@@ -21,10 +23,12 @@ from styles.style import apply_styles
 
 PAGE_RENDERERS = {
     "overview": render_overview,
-    "dataset": render_dataset_info,
+    "data_intro": render_data_intro,
     "preprocessing": render_preprocessing,
-    "data_insights": render_data_insights,
-    "ml_insights": render_ml_insights,
+    "damage_insights": render_damage_insights,
+    "call_insights": render_call_insights,
+    "ml_validation": render_ml_validation,
+    "demo": render_demo,
 }
 
 

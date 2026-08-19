@@ -3,10 +3,12 @@ import streamlit as st
 
 PAGE_OPTIONS = {
     "overview": "🏠 개요",
-    "dataset": "🗂️ 데이터셋 정보",
+    "data_intro": "📁 데이터 소개",
     "preprocessing": "🧹 데이터 전처리 및 한계",
-    "data_insights": "📊 보이스피싱 현황 인사이트",
-    "ml_insights": "🤖 ML 기반 위험 인사이트",
+    "damage_insights": "📊 피해 현황 및 특성",
+    "call_insights": "📞 통화 패턴 및 핵심 인사이트",
+    "ml_validation": "🤖 ML 위험 탐지 및 검증",
+    "demo": "🛡️ 실제 적용 데모",
 }
 
 

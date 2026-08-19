@@ -1,0 +1,15 @@
+import streamlit as st
+
+
+def render_demo() -> None:
+    """실제 적용 데모 페이지의 현재 placeholder를 표시합니다."""
+    with st.container(key="analysis_container"):
+        st.markdown(
+            """
+            <section class="page-placeholder">
+                <h2>콘텐츠 준비 중</h2>
+                <p>향후 가상 시나리오를 활용한 위험 탐지 및 송금 보류 흐름이 이 영역에 추가됩니다.</p>
+            </section>
+            """,
+            unsafe_allow_html=True,
+        )
