@@ -255,6 +255,60 @@ def render_call_insights() -> None:
                 _plot(fig, 410)
         _caution("여러 전략·행동이 한 사건에 함께 존재할 수 있어 비율의 합은 100%를 넘을 수 있음. 이는 발화 빈도가 아니라 해당 유형이 1회 이상 관찰된 사건 비율임.")
 
+        _section("보조 분석 · 4대 이벤트의 시작과 동반 구조", "최초 등장 사건 비율과 사건 단위 조건부 동반율을 함께 확인했음")
+        event_order = ["심리전략", "사칭", "요구행동", "금액"]
+        first_event = _load_csv("04_최초등장이벤트.csv")
+        first_event["이벤트"] = pd.Categorical(first_event["이벤트"], categories=event_order, ordered=True)
+        first_event = first_event.sort_values("전체사건대비_pct")
+
+        conditional_event = _load_csv("05_4대이벤트_조건부등장률.csv").set_index("조건이벤트_A")
+        conditional_event = conditional_event.reindex(index=event_order, columns=event_order)
+
+        event_left, event_right = st.columns(2, gap="medium")
+        with event_left:
+            first_labels = _count_pct_labels(first_event["최초등장_사건수"], first_event["전체사건대비_pct"])
+            fig = px.bar(
+                first_event,
+                x="전체사건대비_pct",
+                y="이벤트",
+                orientation="h",
+                text=first_labels,
+                color="이벤트",
+                color_discrete_map={"심리전략": BLUE, "사칭": NAVY, "요구행동": ORANGE, "금액": RED},
+            )
+            fig.update_traces(
+                textposition="outside",
+                customdata=first_event[["최초등장_사건수"]],
+                hovertemplate="%{y}<br>최초 등장 %{customdata[0]}건 · 전체의 %{x:.1f}%<extra></extra>",
+            )
+            fig.update_xaxes(title="전체 776건 중 최초 등장 사건 비율(%)", range=[0, 72])
+            fig.update_yaxes(title=None)
+            fig.update_layout(title=dict(text="사건에서 가장 먼저 등장한 이벤트", font=dict(size=15)), showlegend=False)
+            _plot(fig, 350)
+            _insight("심리전략이 최초로 등장한 사건은 498건(64.2%), 사칭은 243건(31.3%)이었으며 요구행동 43건(5.5%)보다 앞단에서 주로 관찰됐음.")
+
+        with event_right:
+            fig = go.Figure(
+                go.Heatmap(
+                    z=conditional_event.values,
+                    x=conditional_event.columns,
+                    y=conditional_event.index,
+                    texttemplate="%{z:.1f}",
+                    colorscale="Blues",
+                    zmin=0,
+                    zmax=100,
+                    colorbar=dict(title="조건부<br>등장률(%)"),
+                    hovertemplate="%{y} 등장 사건 중<br>%{x} 동반 %{z:.1f}%<extra></extra>",
+                )
+            )
+            fig.update_xaxes(title="함께 등장한 이벤트", side="bottom")
+            fig.update_yaxes(title="조건 이벤트", autorange="reversed")
+            fig.update_layout(title=dict(text="4대 이벤트 조건부 동반율", font=dict(size=15)))
+            _plot(fig, 350)
+            _insight("요구행동 등장 사건의 99.2%에서 심리전략, 87.4%에서 사칭이 함께 관찰됐고 금액 등장 사건에서도 심리전략이 94.3% 동반됐음.")
+
+        _caution("최초 등장 이벤트는 같은 첫 Turn에 여러 유형이 동시에 나타날 수 있어 비율 합이 100%를 넘음. 조건부 등장률은 P(열 이벤트 | 행 이벤트)이며 방향에 따라 값이 달라지고, 사건 내 동반관계이지 시간적 선후나 인과관계를 의미하지 않음.")
+
         rel = _load_csv("08_strategy_x_action_relationship.csv")
         main_pairs = [("INFORMATION_EXTRACTION","DISCLOSE_ACCOUNT"),("MONEY_REQUEST","TRANSFER_MONEY")]
         chosen = pd.concat([rel[(rel.심리전략.eq(strategy)) & (rel.요구행동.eq(action))] for strategy, action in main_pairs], ignore_index=True)
