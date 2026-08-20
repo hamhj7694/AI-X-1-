@@ -1,0 +1,45 @@
+{
+  "stage": "07_01_calibration_risk_score",
+  "risk_score_formula": "calibrated_probability * 100",
+  "threshold_selected": false,
+  "threshold_stage": "08",
+  "window": {
+    "base_model": "RandomForest",
+    "calibration_method": "PLATT",
+    "calibrator_path": "/content/drive/MyDrive/데이터셋 NEW/07 Calibration_RiskScore/결과_v1/calibrators/window_calibrator.joblib",
+    "validation_calibrated_path": "/content/drive/MyDrive/데이터셋 NEW/07 Calibration_RiskScore/결과_v1/predictions/window_validation_calibrated_oof.parquet",
+    "test_calibrated_path": "/content/drive/MyDrive/데이터셋 NEW/07 Calibration_RiskScore/결과_v1/predictions/window_test_calibrated.parquet",
+    "window_turns": 10,
+    "window_stride": 5,
+    "sequence_key": "source_id",
+    "sequence_order": "window_index",
+    "test_calibration_metrics": {
+      "brier": 0.17590789317616576,
+      "log_loss": 0.5125309912908171,
+      "ece_10": 0.02827806296838375,
+      "roc_auc": 0.7721818704042317,
+      "pr_auc": 0.7816437505320428
+    }
+  },
+  "case": {
+    "base_model": "RandomForest",
+    "feature_set": "STACKED_SAFE",
+    "calibration_method": "IDENTITY",
+    "calibrator_path": "/content/drive/MyDrive/데이터셋 NEW/07 Calibration_RiskScore/결과_v1/calibrators/case_calibrator.joblib",
+    "validation_calibrated_path": "/content/drive/MyDrive/데이터셋 NEW/07 Calibration_RiskScore/결과_v1/predictions/case_validation_calibrated_oof.parquet",
+    "test_calibrated_path": "/content/drive/MyDrive/데이터셋 NEW/07 Calibration_RiskScore/결과_v1/predictions/case_test_calibrated.parquet",
+    "test_calibration_metrics": {
+      "brier": 0.09879076733166471,
+      "log_loss": 0.3112839634136336,
+      "ece_10": 0.07853433388473698,
+      "roc_auc": 0.9248125937031485,
+      "pr_auc": 0.9582161600473856
+    },
+    "operational_role": "secondary/end-of-call; current Case features use whole-call summaries"
+  },
+  "manual_feature_score_used": false,
+  "risk_bands_defined": false,
+  "source_confounding_fully_resolved": false,
+  "probability_interpretation": "internal-distribution calibrated risk; external re-calibration required",
+  "next_stage": "08 threshold + sequential window alert policy selection"
+}
