@@ -31,11 +31,6 @@
 **/*.feather
 **/*.xlsx
 **/*.xls
-**/*.jsonl
-**/cases.json
-**/run_manifest.json
-**/*manifest*.json
-**/*validation_report*.json
 **/Drive 표본/
 
 # Generated datasets and model outputs
