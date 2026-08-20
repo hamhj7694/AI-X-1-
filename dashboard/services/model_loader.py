@@ -6,7 +6,8 @@ from typing import Any
 
 
 DASHBOARD_ROOT = Path(__file__).resolve().parents[1]
-MODEL_PATH = DASHBOARD_ROOT / "models" / "final_voice_phishing_risk_pipeline.pkl"
+PROJECT_ROOT = DASHBOARD_ROOT.parent
+MODEL_PATH = PROJECT_ROOT / "a_함형준" / "MLmodel_v1" / "final_voice_phishing_risk_pipeline.pkl"
 
 
 def _restore_missing_imputer_dtype(bundle: dict[str, Any]) -> list[str]:
