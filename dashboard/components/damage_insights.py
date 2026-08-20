@@ -12,6 +12,10 @@ POLICE_DATA_RELATIVE_PATH = Path(
     "c_이종열/데이터/경찰청_보이스피싱 현황_20251231.csv"
 )
 POLICE_DATA_PATH = PROJECT_ROOT / POLICE_DATA_RELATIVE_PATH
+POLICE_AGE_DATA_RELATIVE_PATH = Path(
+    "c_이종열/데이터/경찰청_전화금융사기 피해자 연령별 현황_20251231.csv"
+)
+POLICE_AGE_DATA_PATH = PROJECT_ROOT / POLICE_AGE_DATA_RELATIVE_PATH
 POSTAL_DATA_RELATIVE_PATH = Path("c_이종열/데이터/df_postal.csv")
 POSTAL_DATA_PATH = PROJECT_ROOT / POSTAL_DATA_RELATIVE_PATH
 
@@ -31,7 +35,34 @@ TYPE_CUMULATIVE_PERIOD = "2016~2025년 누적"
 TYPE_LATEST_PERIOD = "2025년"
 TYPE_PERIOD_LABELS = (TYPE_CUMULATIVE_PERIOD, TYPE_LATEST_PERIOD)
 TYPE_PERIOD_Y_POSITIONS = {TYPE_CUMULATIVE_PERIOD: 1, TYPE_LATEST_PERIOD: 0}
+POLICE_AGE_SOURCE_COLUMNS = (
+    "20대이하",
+    "30대",
+    "40대",
+    "50대",
+    "60대",
+    "70대이상",
+)
+POLICE_AGE_LABELS = {
+    "20대이하": "20대 이하",
+    "30대": "30대",
+    "40대": "40대",
+    "50대": "50대",
+    "60대": "60대",
+    "70대이상": "70대 이상",
+}
+POLICE_AGE_PERIODS = ("2016년", "2025년", "2016~2025년 누적")
+POLICE_AGE_COLORS = {
+    "20대 이하": "#4778a7",
+    "30대": "#2f6497",
+    "40대": "#173f73",
+    "50대": "#2f7d78",
+    "60대": "#3f6f55",
+    "70대 이상": "#626b3f",
+}
+POSTAL_AGE_ORDER = ("20대", "30대", "40대", "50대", "60대", "70대")
 POSTAL_REQUIRED_COLUMNS = (
+    "연령대",
     "피해액",
     "사기유형",
     "사칭기관",
@@ -81,6 +112,73 @@ def load_police_trend_data() -> pd.DataFrame:
         raise ValueError("분석기간이 2016~2025년의 연속된 연도인지 확인해주세요.")
 
     return trend_data
+
+
+def load_police_age_data() -> pd.DataFrame:
+    """경찰청 원본에서 연도별·누적 연령대 피해자 구성비를 계산합니다."""
+    raw_data = pd.read_csv(POLICE_AGE_DATA_PATH, encoding="cp949")
+    raw_data.columns = raw_data.columns.str.strip()
+
+    required_columns = (SOURCE_YEAR_COLUMN, *POLICE_AGE_SOURCE_COLUMNS)
+    missing_columns = [
+        column for column in required_columns if column not in raw_data.columns
+    ]
+    if missing_columns:
+        raise ValueError(f"필수 컬럼이 없습니다: {', '.join(missing_columns)}")
+
+    age_data = raw_data[list(required_columns)].rename(
+        columns={SOURCE_YEAR_COLUMN: "연도"}
+    )
+    for column in age_data.columns:
+        age_data[column] = pd.to_numeric(age_data[column], errors="coerce")
+
+    invalid_columns = age_data.columns[age_data.isna().any()].tolist()
+    if invalid_columns:
+        raise ValueError(
+            "숫자로 변환할 수 없는 값이 있습니다: " + ", ".join(invalid_columns)
+        )
+
+    age_data["연도"] = age_data["연도"].astype(int)
+    age_data = age_data.sort_values("연도", ignore_index=True)
+    expected_years = list(range(2016, 2026))
+    if age_data["연도"].tolist() != expected_years:
+        raise ValueError("연령 데이터의 분석기간이 2016~2025년인지 확인해주세요.")
+    if age_data[list(POLICE_AGE_SOURCE_COLUMNS)].le(0).any().any():
+        raise ValueError("연령대별 피해자 수에 0 이하인 값이 있습니다.")
+
+    annual_long = age_data.melt(
+        id_vars="연도",
+        value_vars=list(POLICE_AGE_SOURCE_COLUMNS),
+        var_name="원본_연령대",
+        value_name="피해자수",
+    )
+    annual_totals = age_data.set_index("연도")[
+        list(POLICE_AGE_SOURCE_COLUMNS)
+    ].sum(axis=1)
+    annual_long["전체_피해자수"] = annual_long["연도"].map(annual_totals)
+    annual_long["구성비"] = (
+        annual_long["피해자수"] / annual_long["전체_피해자수"] * 100
+    )
+    annual_long["기간"] = annual_long["연도"].astype(str) + "년"
+
+    cumulative_counts = age_data[list(POLICE_AGE_SOURCE_COLUMNS)].sum()
+    cumulative_total = cumulative_counts.sum()
+    cumulative_long = pd.DataFrame(
+        {
+            "연도": pd.NA,
+            "원본_연령대": cumulative_counts.index,
+            "피해자수": cumulative_counts.to_numpy(),
+            "전체_피해자수": cumulative_total,
+            "구성비": cumulative_counts.to_numpy() / cumulative_total * 100,
+            "기간": POLICE_AGE_PERIODS[-1],
+        }
+    )
+
+    result = pd.concat([annual_long, cumulative_long], ignore_index=True)
+    result["연령대"] = result["원본_연령대"].map(POLICE_AGE_LABELS)
+    return result[
+        ["연도", "기간", "연령대", "피해자수", "전체_피해자수", "구성비"]
+    ]
 
 
 def _format_amount(amount_eok: float) -> str:
@@ -436,6 +534,114 @@ def _build_type_insight(type_data: pd.DataFrame) -> str:
     )
 
 
+def _create_police_age_comparison_figure(age_data: pd.DataFrame) -> go.Figure:
+    """2016년·2025년·누적 피해자 연령 구성을 100% 누적 막대로 비교합니다."""
+    figure = go.Figure()
+    for age_group in POLICE_AGE_LABELS.values():
+        age_group_data = (
+            age_data[age_data["연령대"].eq(age_group)]
+            .set_index("기간")
+            .loc[list(POLICE_AGE_PERIODS)]
+            .reset_index()
+        )
+        segment_labels = []
+        for share in age_group_data["구성비"]:
+            if share >= 10:
+                segment_labels.append(f"{age_group}<br>{share:.1f}%")
+            elif share >= 5:
+                segment_labels.append(f"{share:.1f}%")
+            else:
+                segment_labels.append("")
+
+        figure.add_trace(
+            go.Bar(
+                name=age_group,
+                x=age_group_data["구성비"],
+                y=age_group_data["기간"],
+                customdata=age_group_data[["피해자수", "구성비"]].to_numpy(),
+                orientation="h",
+                marker={
+                    "color": POLICE_AGE_COLORS[age_group],
+                    "line": {"color": "#ffffff", "width": 1},
+                },
+                text=segment_labels,
+                textposition="inside",
+                insidetextanchor="middle",
+                textfont={"color": "#ffffff", "size": 10},
+                hovertemplate=(
+                    "<b>%{y}</b><br>"
+                    f"연령대: {age_group}<br><br>"
+                    "피해자 수: %{customdata[0]:,.0f}명<br>"
+                    "전체 피해자 중 구성비: %{customdata[1]:.2f}%"
+                    "<extra></extra>"
+                ),
+            )
+        )
+
+    figure.update_layout(
+        title={
+            "text": "연령대별 피해자 구성 비교",
+            "x": 0.01,
+            "xanchor": "left",
+            "font": {"color": "#172033", "size": 16},
+        },
+        height=285,
+        margin={"l": 12, "r": 8, "t": 88, "b": 42},
+        barmode="stack",
+        bargap=0.34,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font={"color": "#172033", "family": "Arial, sans-serif", "size": 11},
+        hoverlabel={"bgcolor": "#ffffff", "font_color": "#172033"},
+        legend={
+            "orientation": "h",
+            "yanchor": "bottom",
+            "y": 1.14,
+            "xanchor": "left",
+            "x": 0,
+            "font": {"size": 10},
+            "traceorder": "normal",
+        },
+        uniformtext={"minsize": 9, "mode": "hide"},
+    )
+    figure.update_xaxes(
+        title="피해자 구성비",
+        range=[0, 100],
+        tickmode="array",
+        tickvals=[0, 25, 50, 75, 100],
+        ticksuffix="%",
+        title_font={"color": "#172033", "size": 11},
+        tickfont={"color": "#172033", "size": 10},
+        automargin=True,
+        showgrid=True,
+        gridcolor="rgba(101,113,135,0.20)",
+        zeroline=False,
+    )
+    # Plotly의 범주형 y축은 첫 범주가 아래에 오므로 축을 뒤집어 과거→최근→누적으로 표시합니다.
+    figure.update_yaxes(
+        categoryorder="array",
+        categoryarray=list(POLICE_AGE_PERIODS),
+        autorange="reversed",
+        tickfont={"color": "#172033", "size": 10},
+        automargin=True,
+        showgrid=False,
+        zeroline=False,
+        title=None,
+    )
+    return figure
+
+
+def _build_police_age_insight(age_data: pd.DataFrame) -> str:
+    cumulative = age_data[age_data["기간"].eq(POLICE_AGE_PERIODS[-1])]
+    largest_group = cumulative.loc[cumulative["구성비"].idxmax()]
+    return (
+        f"2016~2025년 누적에서는 {largest_group['연령대']}가 전체 피해자 중 "
+        f"{largest_group['구성비']:.2f}%로 가장 큰 비중을 차지했습니다. "
+        "2016년과 2025년의 구성을 비교하면 일부 연령대의 비중이 달라져, "
+        "피해자 연령 구성이 고정되어 있지 않음을 확인할 수 있습니다."
+    )
+
+
 def load_postal_damage_data() -> pd.DataFrame:
     """Notebook과 동일한 조건으로 우체국 피해금액 분석표본을 만듭니다."""
     raw_data = pd.read_csv(POSTAL_DATA_PATH, encoding="utf-8-sig")
@@ -470,13 +676,21 @@ def load_postal_damage_data() -> pd.DataFrame:
     )
     damage_data = raw_data.loc[
         phone_mask & ~investment_mask & ~duplicate_candidate_mask,
-        ["피해액", "사기유형", "사칭기관"],
+        ["연령대", "피해액", "사기유형", "사칭기관"],
     ].copy()
 
     if damage_data.empty:
         raise ValueError("우체국 피해금액 분석대상이 없습니다.")
     if damage_data["피해액"].le(0).any():
         raise ValueError("피해액이 0원 이하인 행이 있습니다.")
+
+    age_numbers = pd.to_numeric(damage_data["연령대"], errors="coerce")
+    if age_numbers.isna().any():
+        raise ValueError("연령대를 숫자로 변환할 수 없는 행이 있습니다.")
+    damage_data["연령대"] = age_numbers.astype(int).astype(str) + "대"
+    unexpected_ages = sorted(set(damage_data["연령대"]) - set(POSTAL_AGE_ORDER))
+    if unexpected_ages:
+        raise ValueError(f"예상하지 못한 연령대가 있습니다: {', '.join(unexpected_ages)}")
 
     damage_data["피해액_억원"] = damage_data["피해액"] / WON_PER_EOK
     return damage_data.reset_index(drop=True)
@@ -540,6 +754,92 @@ def _build_postal_damage_insight(damage_data: pd.DataFrame) -> str:
         f"중앙값은 {_format_won_as_manwon(median_amount)}이지만 평균은 약 "
         f"{_format_won_as_manwon(mean_amount)}으로 더 높아, 일부 고액 피해사례가 "
         "전체 평균을 크게 끌어올리는 오른쪽으로 치우친 분포가 나타났습니다."
+    )
+
+
+def _create_postal_age_median_figure(damage_data: pd.DataFrame) -> go.Figure:
+    """우체국 표본의 연령대별 중앙 피해금액을 발표용 막대로 표시합니다."""
+    age_summary = (
+        damage_data.groupby("연령대", observed=False)["피해액"]
+        .agg(표본수="size", 중앙값="median", 평균="mean")
+        .reindex(POSTAL_AGE_ORDER)
+    )
+    if age_summary.isna().any().any():
+        raise ValueError("연령대별 피해금액 요약에 필요한 표본이 없습니다.")
+
+    age_summary = age_summary.reset_index()
+    age_summary["중앙값_억원"] = age_summary["중앙값"] / WON_PER_EOK
+    age_summary["표시값"] = age_summary["중앙값"].map(_format_won_as_manwon)
+
+    figure = go.Figure(
+        go.Bar(
+            x=age_summary["연령대"],
+            y=age_summary["중앙값_억원"],
+            customdata=age_summary[["표본수", "중앙값", "평균"]].to_numpy(),
+            marker={"color": "#1f5fae"},
+            text=age_summary["표시값"],
+            textposition="outside",
+            cliponaxis=False,
+            hovertemplate=(
+                "<b>%{x}</b><br>"
+                "표본 수: %{customdata[0]:,.0f}건<br>"
+                "중앙값: %{customdata[1]:,.0f}원<br>"
+                "평균: %{customdata[2]:,.0f}원<extra></extra>"
+            ),
+        )
+    )
+    figure.update_layout(
+        title={
+            "text": "연령대별 중앙 피해금액",
+            "x": 0.01,
+            "xanchor": "left",
+            "font": {"color": "#172033", "size": 16},
+        },
+        height=285,
+        margin={"l": 12, "r": 8, "t": 56, "b": 28},
+        bargap=0.32,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font={"color": "#172033", "family": "Arial, sans-serif", "size": 11},
+        hoverlabel={"bgcolor": "#ffffff", "font_color": "#172033"},
+        showlegend=False,
+    )
+    figure.update_xaxes(
+        title="연령대",
+        categoryorder="array",
+        categoryarray=list(POSTAL_AGE_ORDER),
+        title_font={"color": "#172033", "size": 11},
+        tickfont={"color": "#172033", "size": 10},
+        automargin=True,
+        showgrid=False,
+        linecolor="#dce4ee",
+    )
+    figure.update_yaxes(
+        title="중앙 피해금액",
+        tickformat=".1f",
+        ticksuffix="억",
+        rangemode="tozero",
+        title_font={"color": "#172033", "size": 11},
+        tickfont={"color": "#172033", "size": 10},
+        automargin=True,
+        showgrid=True,
+        gridcolor="rgba(101,113,135,0.20)",
+        zeroline=False,
+    )
+    return figure
+
+
+def _build_age_section_insight(
+    police_age_data: pd.DataFrame,
+    postal_damage_data: pd.DataFrame,
+) -> str:
+    """두 데이터의 역할과 U1 확정 결론을 구분해 연령 영역을 요약합니다."""
+    police_insight = _build_police_age_insight(police_age_data)
+    return (
+        f"{police_insight} 우체국 실제 피해사례 {len(postal_damage_data):,}건에서도 "
+        "연령대별 피해금액 분포 차이가 BH 보정 후 확인되었고 효과크기도 크게 "
+        "나타났습니다. 다만 이는 특정 연령이 보이스피싱 위험이나 피해금액의 "
+        "원인이라는 의미가 아니며, 연령을 단독 차단 기준으로 사용하지 않습니다."
     )
 
 
@@ -706,6 +1006,18 @@ def render_damage_insights() -> None:
             return
 
         try:
+            police_age_data = load_police_age_data()
+        except FileNotFoundError:
+            st.error(
+                "경찰청 연령 데이터 파일을 찾을 수 없습니다. "
+                f"확인 파일: `{POLICE_AGE_DATA_RELATIVE_PATH.as_posix()}`"
+            )
+            return
+        except (UnicodeDecodeError, pd.errors.ParserError, ValueError) as error:
+            st.error(f"연령 구성 계산에 필요한 경찰청 데이터를 확인할 수 없습니다: {error}")
+            return
+
+        try:
             postal_damage_data = load_postal_damage_data()
         except FileNotFoundError:
             st.error(
@@ -724,6 +1036,12 @@ def render_damage_insights() -> None:
         latest_type_data = type_data[type_data["기간"] == TYPE_LATEST_PERIOD]
         latest_type_data = latest_type_data.set_index("사기유형")
         latest_impersonation = latest_type_data.loc["기관사칭형"]
+        cumulative_age_data = police_age_data[
+            police_age_data["기간"].eq(POLICE_AGE_PERIODS[-1])
+        ]
+        largest_age_group = cumulative_age_data.loc[
+            cumulative_age_data["구성비"].idxmax()
+        ]
         postal_sample_size = len(postal_damage_data)
         postal_median = postal_damage_data["피해액"].median()
         postal_mean = postal_damage_data["피해액"].mean()
@@ -733,17 +1051,25 @@ def render_damage_insights() -> None:
             <section class="damage-summary-strip">
                 <div class="damage-summary-grid">
                     <div class="damage-summary-item">
-                        <p class="damage-summary-label">전체 발생건수</p>
+                        <p class="damage-summary-label">2025 전체 피해 규모</p>
                         <p class="damage-summary-value">{int(latest['전체_발생건수']):,}건</p>
                         <p class="damage-summary-meta">
+                            <span class="damage-summary-secondary">
+                                피해금액 {_format_amount(latest['전체_피해액_억원'])}
+                            </span>
                             <span class="damage-summary-source">경찰청 · 2025</span>
                         </p>
                     </div>
                     <div class="damage-summary-item">
-                        <p class="damage-summary-label">전체 피해금액</p>
-                        <p class="damage-summary-value">{_format_amount(latest['전체_피해액_억원'])}</p>
+                        <p class="damage-summary-label">피해자 구성 최다 연령대</p>
+                        <p class="damage-summary-value">
+                            {largest_age_group['연령대']} · {largest_age_group['구성비']:.1f}%
+                        </p>
                         <p class="damage-summary-meta">
-                            <span class="damage-summary-source">경찰청 · 2025</span>
+                            <span class="damage-summary-secondary">
+                                전체 피해자 중 구성비
+                            </span>
+                            <span class="damage-summary-source">경찰청 · 2016~2025</span>
                         </p>
                     </div>
                     <div class="damage-summary-item">
@@ -775,13 +1101,10 @@ def render_damage_insights() -> None:
         )
 
         chart_config = {"displayModeBar": False, "responsive": True}
-        (
-            police_overview_column,
-            police_type_column,
-            postal_damage_column,
-        ) = st.columns(3, gap="medium")
+        row1_left, row1_right = st.columns(2, gap="medium")
+        row2_left, row2_right = st.columns(2, gap="medium")
 
-        with police_overview_column:
+        with row1_left:
             st.markdown(
                 """
                 <header class="analysis-section-header police-trend-header">
@@ -822,7 +1145,54 @@ def render_damage_insights() -> None:
                 unsafe_allow_html=True,
             )
 
-        with police_type_column:
+        with row1_right:
+            st.markdown(
+                """
+                <header class="analysis-section-header">
+                    <p class="analysis-source">경찰청 집계통계 + 우체국 피해사례</p>
+                    <h2>연령대별 피해 특성</h2>
+                    <p>
+                        피해자 연령 구성의 변화와 실제 피해사례의 연령대별
+                        피해금액을 함께 확인합니다.
+                    </p>
+                </header>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            police_age_figure = _create_police_age_comparison_figure(
+                police_age_data
+            )
+            st.plotly_chart(
+                police_age_figure,
+                width="stretch",
+                theme=None,
+                config=chart_config,
+                key="police_age_comparison_chart",
+            )
+
+            postal_age_figure = _create_postal_age_median_figure(
+                postal_damage_data
+            )
+            st.plotly_chart(
+                postal_age_figure,
+                width="stretch",
+                theme=None,
+                config=chart_config,
+                key="postal_age_median_chart",
+            )
+
+            st.markdown(
+                f"""
+                <aside class="analysis-insight">
+                    <strong>연령대별 통합 인사이트</strong>
+                    <p>{_build_age_section_insight(police_age_data, postal_damage_data)}</p>
+                </aside>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        with row2_left:
             st.markdown(
                 """
                 <header class="analysis-section-header">
@@ -856,7 +1226,7 @@ def render_damage_insights() -> None:
                 unsafe_allow_html=True,
             )
 
-        with postal_damage_column:
+        with row2_right:
             st.markdown(
                 f"""
                 <header class="analysis-section-header">
