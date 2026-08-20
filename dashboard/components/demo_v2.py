@@ -188,19 +188,21 @@ def load_window_model() -> dict[str, Any]:
 
 
 def _parse_turns(text: str) -> list[str]:
-    turns = [line.strip() for line in str(text).splitlines() if line.strip()]
-    if len(turns) <= 1:
-        turns = [x.strip() for x in re.split(r"(?<=[.!?。])\s+", str(text).strip()) if x.strip()]
-    return turns
+    # 줄바꿈 여부와 관계없이 모든 줄을 문장부호 기준으로 다시 나눈다.
+    # 따라서 "첫 문장. 둘째 문장."을 한 줄로 넣어도 두 분석 단위가 된다.
+    sentences: list[str] = []
+    for line in str(text).splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        parts = re.split(r"(?<=[.!?。！？])\s*", line)
+        sentences.extend(part.strip() for part in parts if part.strip())
+    return sentences
 
 
 def _prompt_for_target(turns: list[str], target_index: int) -> str:
-    start = max(0, target_index - WINDOW_TURNS + 1)
-    rows = []
-    for idx in range(start, target_index + 1):
-        tag = "TARGET" if idx == target_index else "CONTEXT"
-        rows.append(f"[{tag}][TURN {idx + 1}][SPEAKER_UNKNOWN] {turns[idx]}")
-    return "\n".join(rows)
+    # 문장마다 독립적으로 피처화하므로 이전 문장을 CONTEXT에 포함하지 않는다.
+    return f"[TARGET][TURN {target_index + 1}][SPEAKER_UNKNOWN] {turns[target_index]}"
 
 
 def extract_events(text: str) -> dict[str, Any]:
@@ -220,36 +222,57 @@ def extract_events(text: str) -> dict[str, Any]:
         client = OpenAI(api_key=api_key)
         model_name = os.getenv("OPENAI_EVENT_MODEL", "gpt-4o-mini")
         events: list[dict[str, Any]] = []
+        successful_turn_ids: list[int] = []
+        turn_errors: list[dict[str, Any]] = []
         for target_index, target_text in enumerate(turns):
-            response = client.responses.create(
-                model=model_name,
-                instructions=SYSTEM_INSTRUCTION,
-                input=_prompt_for_target(turns, target_index),
-                text={
-                    "format": {
-                        "type": "json_schema",
-                        "name": "voice_phishing_events_v2_2",
-                        "schema": EVENT_OUTPUT_SCHEMA,
-                        "strict": True,
-                    }
-                },
-            )
-            parsed = json.loads(response.output_text)
-            target_events = parsed.get("events")
-            if not isinstance(target_events, list):
-                raise ValueError(f"Turn {target_index + 1}: events 배열이 없습니다.")
-            for event in target_events:
-                if int(event["evidence_turn_id"]) != target_index + 1:
-                    raise ValueError(f"Turn {target_index + 1}: evidence_turn_id 불일치")
-                evidence = unicodedata.normalize("NFKC", str(event["evidence_text"]).strip())
-                target_norm = unicodedata.normalize("NFKC", target_text)
-                if not evidence or evidence not in target_norm:
-                    raise ValueError(f"Turn {target_index + 1}: 원문과 일치하지 않는 evidence")
-                event["evidence_text"] = evidence
-                event["detected_at_turn"] = target_index + 1
-                events.append(event)
+            try:
+                response = client.responses.create(
+                    model=model_name,
+                    instructions=SYSTEM_INSTRUCTION,
+                    input=_prompt_for_target(turns, target_index),
+                    text={
+                        "format": {
+                            "type": "json_schema",
+                            "name": "voice_phishing_events_v2_2",
+                            "schema": EVENT_OUTPUT_SCHEMA,
+                            "strict": True,
+                        }
+                    },
+                )
+                parsed = json.loads(response.output_text)
+                target_events = parsed.get("events")
+                if not isinstance(target_events, list):
+                    raise ValueError("events 배열이 없습니다.")
+                validated_events = []
+                for event in target_events:
+                    if int(event["evidence_turn_id"]) != target_index + 1:
+                        raise ValueError("evidence_turn_id 불일치")
+                    evidence = unicodedata.normalize("NFKC", str(event["evidence_text"]).strip())
+                    target_norm = unicodedata.normalize("NFKC", target_text)
+                    if not evidence or evidence not in target_norm:
+                        raise ValueError("원문과 일치하지 않는 evidence")
+                    event["evidence_text"] = evidence
+                    event["detected_at_turn"] = target_index + 1
+                    validated_events.append(event)
+                events.extend(validated_events)
+                successful_turn_ids.append(target_index + 1)
+            except Exception as exc:
+                turn_errors.append({
+                    "turn": target_index + 1,
+                    "text": target_text,
+                    "error": f"{type(exc).__name__}: {exc}",
+                })
+                continue
+        if not successful_turn_ids:
+            return {
+                "ok": False, "events": [], "turns": turns,
+                "successful_turn_ids": [], "turn_errors": turn_errors,
+                "error": "모든 문장의 이벤트 추출에 실패했습니다.",
+                "extractor_model": model_name,
+            }
         return {
             "ok": True, "events": events, "turns": turns, "error": None,
+            "successful_turn_ids": successful_turn_ids, "turn_errors": turn_errors,
             "extractor_model": model_name,
         }
     except Exception as exc:
@@ -370,19 +393,23 @@ def _features_from_events(events: list[dict[str, Any]]) -> dict[str, float]:
 
 
 def build_window_features(
-    events: list[dict[str, Any]], conversation_context: list[str]
+    events: list[dict[str, Any]], conversation_context: list[str],
+    successful_turn_ids: list[int] | None = None,
 ) -> list[dict[str, Any]]:
-    """각 Turn 종료 시점의 최근 최대 10 Turn Window feature를 만든다."""
+    """각 문장을 독립된 단일 Window로 피처화해 점수 간 희석을 막는다."""
     rows = []
-    for end_turn in range(1, len(conversation_context) + 1, WINDOW_STRIDE):
-        start_turn = max(1, end_turn - WINDOW_TURNS + 1)
+    allowed = set(successful_turn_ids or range(1, len(conversation_context) + 1))
+    for end_turn in range(1, len(conversation_context) + 1):
+        if end_turn not in allowed:
+            continue
         window_events = [
             event for event in events
-            if start_turn <= int(event.get("detected_at_turn", event.get("evidence_turn_id", 0))) <= end_turn
+            if int(event.get("detected_at_turn", event.get("evidence_turn_id", 0))) == end_turn
         ]
         rows.append({
-            "start_turn": start_turn,
+            "start_turn": end_turn,
             "end_turn": end_turn,
+            "sentence": conversation_context[end_turn - 1],
             "features": _features_from_events(window_events),
         })
     return rows
@@ -452,13 +479,19 @@ def analyze_conversation(text: str) -> dict[str, Any]:
         return result
 
     extraction = extract_events(text)
-    result.update({"turns": extraction["turns"], "events": extraction["events"]})
+    result.update({
+        "turns": extraction["turns"], "events": extraction["events"],
+        "turn_errors": extraction.get("turn_errors", []),
+    })
     if not extraction["ok"]:
         result["error"] = extraction["error"]
         return result
 
     try:
-        windows = build_window_features(extraction["events"], extraction["turns"])
+        windows = build_window_features(
+            extraction["events"], extraction["turns"],
+            extraction.get("successful_turn_ids"),
+        )
         feature_rows = []
         for window in windows:
             row = {name: window["features"].get(name, 0) for name in bundle["model_features"]}
@@ -481,17 +514,25 @@ def analyze_conversation(text: str) -> dict[str, Any]:
         ]
         result.update({
             "analysis_ok": True, "status": "COMPLETED", "windows": windows,
-            "final_label": final_window["final_label"],
-            "final_risk_score": final_window["final_risk_score"],
-            "raw_ml_risk_score": final_window["raw_ml_risk_score"],
-            "guardrail_applied": final_window["guardrail_applied"],
-            "candidate_signal_count": final_window["candidate_signal_count"],
+            # 긴 통화에서 짧고 강한 위험 구간이 뒤의 정상 문장에 희석되지 않도록
+            # 대표 점수와 최종 판정은 전체 Window의 최고점으로 결정한다.
+            "final_label": max_window["final_label"],
+            "final_risk_score": max_window["final_risk_score"],
+            "raw_ml_risk_score": max_window["raw_ml_risk_score"],
+            "guardrail_applied": max_window["guardrail_applied"],
+            "candidate_signal_count": max_window["candidate_signal_count"],
             "max_window_score": max_window["final_risk_score"],
-            "active_signals": get_active_risk_signals(final_window["features"]),
+            "max_window_start_turn": max_window["start_turn"],
+            "max_window_end_turn": max_window["end_turn"],
+            "current_window_score": final_window["final_risk_score"],
+            "current_window_label": final_window["final_label"],
+            "active_signals": get_active_risk_signals(max_window["features"]),
             "evidence": evidence,
             "missing_features": [],
-            "unexpected_features": sorted(set(final_window["features"]) - set(bundle["model_features"])),
+            "unexpected_features": sorted(set(max_window["features"]) - set(bundle["model_features"])),
             "extractor_model": extraction.get("extractor_model"),
+            "analyzed_sentence_count": len(windows),
+            "failed_sentence_count": len(extraction.get("turn_errors", [])),
         })
         return result
     except Exception as exc:
@@ -532,18 +573,28 @@ def render_dashboard(result: dict[str, Any]) -> None:
         return
 
     score = float(result["final_risk_score"])
-    left, right, meta = st.columns([1.2, 1, 1])
-    left.metric("현재 위험점수", f"{score:.1f}점", f"기준 {result['threshold_score']:.0f}점")
-    right.metric("최종 상태", result["final_label"])
-    meta.metric("활성 위험신호", f"{result['candidate_signal_count']}개")
+    highest, current, decision, meta = st.columns([1.2, 1, 1, 1])
+    highest.metric("최고 위험점수", f"{score:.1f}점", f"기준 {result['threshold_score']:.0f}점")
+    current.metric("마지막 문장 점수", f"{result['current_window_score']:.1f}점", result["current_window_label"])
+    decision.metric("최종 상태", result["final_label"])
+    meta.metric("최고 구간 위험신호", f"{result['candidate_signal_count']}개")
+    st.caption(
+        f"대표 위험점수는 문장별 독립 점수 중 최고점이며, 최고 위험 문장은 "
+        f"{result['max_window_end_turn']}번 문장이었음."
+    )
+    if result.get("failed_sentence_count"):
+        st.warning(
+            f"총 {len(result['turns'])}개 문장 중 {result['failed_sentence_count']}개 문장은 "
+            "이벤트 추출에 실패해 점수 계산에서 제외되었습니다."
+        )
     if result["final_label"] == "PHISHING":
         st.error("보이스피싱 위험이 높게 감지되었습니다. 송금·정보 제공을 중단하고 공식 채널로 확인하세요.")
     else:
         st.info("현재 판정 기준 미만입니다. NORMAL은 안전 확정을 의미하지 않으므로 계속 주의하세요.")
     if result["guardrail_applied"]:
-        st.caption("위험 이벤트가 하나도 없어 12-08 Zero-feature Guardrail이 적용되었습니다.")
+        st.caption("최고점 Window에도 위험 이벤트가 없어 12-08 Zero-feature Guardrail이 적용되었습니다.")
 
-    st.markdown("#### Turn/Window별 위험점수 변화")
+    st.markdown("#### 문장별 독립 위험점수")
     st.plotly_chart(_risk_chart(result["windows"], result["threshold_score"]), width="stretch", config={"displayModeBar": False})
     c1, c2 = st.columns(2)
     with c1:
@@ -551,7 +602,7 @@ def render_dashboard(result: dict[str, Any]) -> None:
         if result["active_signals"]:
             st.dataframe(pd.DataFrame(result["active_signals"]), hide_index=True, width="stretch")
         else:
-            st.success("최종 Window에서 활성화된 주요 위험 신호가 없습니다.")
+            st.success("최고점 Window에서 활성화된 주요 위험 신호가 없습니다.")
     with c2:
         st.markdown("#### 위험 신호의 원문 Evidence")
         if result["evidence"]:
@@ -564,9 +615,11 @@ def render_dashboard(result: dict[str, Any]) -> None:
             f"""
 - LLM은 각 TARGET Turn의 Event만 추출했으며 NORMAL/PHISHING을 판단하지 않았음.
 - Python은 **12-01 Feature Builder v2.2** 정의로 피처를 계산했음.
-- Window는 현재 Turn을 포함한 최근 최대 **{WINDOW_TURNS}개 발화**, Stride **{WINDOW_STRIDE}**로 구성했음.
+- 입력을 문장 단위로 분리하고 각 문장을 **독립된 단일 Window**로 피처화했음.
 - Window Logistic이 ML 확률을 계산한 뒤 **12-08 Zero-feature Guardrail**을 적용했음.
-- 최종 화면은 마지막 현재 Window 점수를 표시했으며, Cumulative 모델은 사용하지 않았음.
+- 대표 위험점수와 최종 판정은 문장별 점수 중 **최고점**을 사용했음.
+- 마지막 문장 점수는 별도 지표로 표시했으며, Cumulative와 문장 간 평균은 사용하지 않았음.
+- 문장 단위 독립 추론은 긴 입력 대응을 위한 데모 정책이며 학습 당시 연속 Window와 차이가 있어 추가 검증이 필요함.
 - 모델 상태: `{result['model_status']}` · 버전: `{result['model_version']}` · source: `{result['source_run']}`
 - Event extractor: `{result.get('extractor_model')}`
             """
@@ -583,7 +636,7 @@ def render_dashboard(result: dict[str, Any]) -> None:
 
 def render_demo_v2() -> None:
     st.markdown("## 보이스피싱 위험도 분석 데모 v2")
-    st.caption("LLM Event 추출 → 12-01 Feature Builder → Window Logistic → Zero-feature Guardrail")
+    st.caption("문장 분리 → 문장별 LLM Event 추출 → Feature Builder → Window Logistic → 최고점 선택")
     try:
         bundle = load_window_model()
         if bundle.get("model_status") == "EXPERIMENTAL_SAMPLE":
@@ -607,7 +660,7 @@ def render_demo_v2() -> None:
         if not text.strip():
             st.error("분석할 텍스트를 입력해 주세요.")
         else:
-            with st.spinner("발화별 이벤트를 추출하고 Window 위험도를 계산하고 있습니다..."):
+            with st.spinner("문장을 하나씩 분석해 점수를 저장하고 최고 위험점수를 찾고 있습니다..."):
                 st.session_state["demo_v2_result"] = analyze_conversation(text)
     if st.session_state.get("demo_v2_result"):
         st.divider()
