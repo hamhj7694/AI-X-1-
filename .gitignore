@@ -12,7 +12,6 @@
 **/*.pt
 **/*.pth
 **/*.ckpt
-**/*.pkl
 **/*.pickle
 **/*.joblib
 
